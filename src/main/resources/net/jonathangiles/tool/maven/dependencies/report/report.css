@@ -1,0 +1,70 @@
+body {
+    font-family: Verdana, sans-serif;
+    font-size: 13px !important;
+}
+table {
+    border-spacing: 0px;
+    width: 65%;
+    font-size: 14px !important;
+}
+table.condensed tr td {
+    padding: 7px 15px;
+}
+th, td {
+    padding: 15px;
+    border-bottom: 1px solid #ddd;
+    vertical-align:top;
+}
+tr:nth-child(even) {
+    background-color: #f2f2f2;
+}
+th {
+    background-color: #4c93af;
+    color: white;
+    font-weight: 300;
+    text-align: left;
+}
+td.version {
+    width: 75px;
+}
+.tooltip {
+    position: relative;
+    display: inline-block;
+    border-bottom: 1px dotted black;
+}
+.tooltip .tooltiptext {
+    visibility: hidden;
+    background-color: #424242;
+    color: #fff;
+    white-space: nowrap;
+    text-align: left;
+    padding: 5px;
+    font-size: 12px;
+    position: absolute;
+    z-index: 1;
+    margin-top: 7px;
+    top: 100%;
+    left: 0%;
+}
+.tooltip .tooltiptext::after {
+    content: " ";
+    position: absolute;
+    bottom: 100%;  /* At the top of the tooltip */
+    left: 5%;
+    margin-left: -5px;
+    border-width: 5px;
+    border-style: solid;
+    border-color: transparent transparent #424242 transparent;
+}
+.tooltip:hover .tooltiptext {
+    visibility: visible;
+}
+
+@media only screen and (max-width: 1350px) {
+    table {
+        width: 95%;
+    }
+    td.version {
+        width: 35px;
+    }
+}
