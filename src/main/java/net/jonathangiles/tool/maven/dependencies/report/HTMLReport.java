@@ -1,11 +1,10 @@
 package net.jonathangiles.tool.maven.dependencies.report;
 
 import net.jonathangiles.tool.maven.dependencies.model.Dependency;
-import net.jonathangiles.tool.maven.dependencies.model.DependencyVersion;
+import net.jonathangiles.tool.maven.dependencies.model.DependencyChain;
 import net.jonathangiles.tool.maven.dependencies.model.Version;
 import net.jonathangiles.tool.maven.dependencies.project.Project;
 import org.jboss.shrinkwrap.resolver.api.maven.Maven;
-import org.jboss.shrinkwrap.resolver.api.maven.MavenResolverSystem;
 import org.jboss.shrinkwrap.resolver.api.maven.coordinate.MavenCoordinate;
 
 import java.io.*;
@@ -18,15 +17,12 @@ public class HTMLReport implements Report {
     private final File outFile;
     private final StringBuilder sb;
 
-    private final MavenResolverSystem mavenResolver;
-
-    private final Map<String, String> resolvedVersionsWithNoQualifiers;
-    private final Map<String, String> resolvedVersions; // this map contains values with or without qualifiers
+    private final Map<String, Version> resolvedVersionsWithNoQualifiers;
+    private final Map<String, Version> resolvedVersions; // this map contains values with or without qualifiers
 
     public HTMLReport(File outFile) {
         this.outFile = outFile;
         this.sb = new StringBuilder();
-        this.mavenResolver = Maven.resolver();
         this.resolvedVersionsWithNoQualifiers = new HashMap<>();
         this.resolvedVersions = new HashMap<>();
     }
@@ -87,7 +83,7 @@ public class HTMLReport implements Report {
         for (Project project : projects) {
             out("      <tr>");
             out("        <td>" + project.getFullProjectName() + "</td>");
-            out("        <td>" + getLatestVersion(project.getProjectName(), true) + "</td>");
+            out("        <td>" + getLatestVersionInMavenCentral(project.getProjectName(), true) + "</td>");
             out("      </tr>");
         }
 
@@ -97,7 +93,7 @@ public class HTMLReport implements Report {
     }
 
     private void process(Dependency dependency) {
-        String latestReleasedVersion = getLatestVersion(dependency.getGA(), false);
+        Version latestReleasedVersion = getLatestVersionInMavenCentral(dependency.getGA(), false);
 
         out("    <table>");
         out("      <thead>");
@@ -106,9 +102,9 @@ public class HTMLReport implements Report {
         out("      </thead>");
         out("      <tbody>");
 
-        List<String> versions = dependency.getVersions()
+        List<Version> versions = dependency.getVersions()
                 .stream()
-                .sorted(Comparator.comparing(Version::build).reversed())
+                .sorted(Comparator.reverseOrder())
                 .collect(Collectors.toList());
 
         if (!versions.get(0).equals(latestReleasedVersion)) {
@@ -129,40 +125,62 @@ public class HTMLReport implements Report {
                     .stream()
                     .sorted(Comparator.comparing(e -> e.getKey().getFullProjectName()))
                     .forEach(e -> {
-                        Optional<List<String>> chain = e.getValue().stream()
-                                .filter(DependencyVersion::hasDependencyChain)
-                                .sorted(Comparator.comparingInt(DependencyVersion::getDependencyChainSize).reversed())
+                        Optional<DependencyChain> dependencyChain = e.getValue()
+                                .stream()
+                                .filter(DependencyChain::hasDependencyChain)
+                                .sorted(Comparator.comparingInt(DependencyChain::getDependencyChainSize).reversed())
                                 .limit(1)
-                                .findFirst()
-                                .map(DependencyVersion::getDependencyChain);
+                                .findFirst();
 
-                        if (chain.isPresent()) {
-                            List<String> chainItems = chain.get();
-                            chainItems.add(0, e.getKey().getFullProjectName());
-                            chainItems.add(dependency.getGA() + ":" + version);
+                        if (dependencyChain.isPresent()) {
+                            DependencyChain depChain = dependencyChain.get();
+                            List<String> chainItems = depChain.getDependencyChain();
+                            if (!chainItems.isEmpty()) {
+                                chainItems.add(0, e.getKey().getFullProjectName());
+                                chainItems.add(dependency.getGA() + ":" + version);
 
-                            StringBuilder chainString = new StringBuilder();
+                                StringBuilder chainString = new StringBuilder();
 
-                            chainString.append("<u>Dependency Chain</u><br/>");
+                                chainString.append("<strong>Dependency Chain</strong><br/>");
 
-                            for (int i = 0; i < chainItems.size(); i++) {
-                                for (int indent = 1; indent < 4 * i; indent++) {
-                                    chainString.append("&nbsp;");
+                                for (int i = 0; i < chainItems.size(); i++) {
+                                    for (int indent = 1; indent < 4 * i; indent++) {
+                                        chainString.append("&nbsp;");
+                                    }
+
+                                    String gav = chainItems.get(i);
+                                    Version latestVersion = getLatestVersionInMavenCentral(gav, false);
+
+                                    if (latestVersion != null) {
+                                        Version thisVersion = getVersionFromGAV(gav);
+                                        if (thisVersion != null) {
+                                            int diff = thisVersion.compareTo(latestVersion);
+
+                                            switch (diff) {
+                                                case 0:
+                                                case 1:
+                                                    chainString.append("<font class=\"success\">");
+                                                    break;
+                                                case -1:
+                                                    chainString.append("<font class=\"fail\">");
+                                                    break;
+                                            }
+                                        }
+                                    }
+
+                                    chainString.append("- ");
+                                    chainString.append(gav);
+
+
+                                    if (latestVersion != null) {
+                                        chainString.append(" (Latest version: " + latestVersion + ")</font>");
+                                    }
+
+                                    chainString.append("<br/>");
                                 }
 
-                                String ga = chainItems.get(i);
-                                chainString.append("- ");
-                                chainString.append(ga);
-
-                                String latestVersion = getLatestVersion(ga, false);
-                                if (latestVersion != null && !latestVersion.isEmpty()) {
-                                    chainString.append(" (Latest version: " + latestVersion + ")");
-                                }
-
-                                chainString.append("<br/>");
+                                out("<div class=\"tooltip\">" + e.getKey().getFullProjectName() + "<span class=\"tooltiptext\">" + chainString.toString() + "</span></div><br/>");
                             }
-
-                            out("<div class=\"tooltip\">" + e.getKey().getFullProjectName() + "<span class=\"tooltiptext\">" + chainString.toString() + "</span></div><br/>");
                         } else {
                             out(e.getKey().getFullProjectName() + "<br/>");
                         }
@@ -182,16 +200,23 @@ public class HTMLReport implements Report {
         sb.append("\r\n");
     }
 
-    private String getLatestVersion(String ga, boolean acceptQualifiers) {
-        Map<String, String> mapToLookup = acceptQualifiers ? resolvedVersions : resolvedVersionsWithNoQualifiers;
+    private Version getLatestVersionInMavenCentral(String ga, boolean acceptQualifiers) {
+        Map<String, Version> mapToLookup = acceptQualifiers ? resolvedVersions : resolvedVersionsWithNoQualifiers;
 
         return mapToLookup.computeIfAbsent(ga, key -> {
-            Optional<MavenCoordinate> result = mavenResolver.resolveVersionRange(key + ":[0.1,)")
+            Optional<MavenCoordinate> result = Maven.resolver().resolveVersionRange(key + ":[0.1,)")
                             .getVersions()
                             .stream()
                             .filter(coor -> acceptQualifiers || !coor.getVersion().contains("-")) // we don't want -SNAPSHOT, etc
                             .reduce((first, second) -> second); // the highest version is the last version
-            return result.isPresent() ? result.get().getVersion() : "";
+
+            return result.isPresent() ? Version.build(result.get().getVersion()) : null;
         });
+    }
+
+    private Version getVersionFromGAV(String gav) {
+        String version = gav.substring(gav.lastIndexOf(":") + 1);
+//        String version = Maven.resolver().resolve(gav).withoutTransitivity().asSingleResolvedArtifact().getCoordinate().getVersion();
+        return version != null ? Version.build(version) : null;
     }
 }

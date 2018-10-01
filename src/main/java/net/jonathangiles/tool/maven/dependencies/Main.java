@@ -11,14 +11,7 @@ import net.jonathangiles.tool.maven.dependencies.report.PlainTextReport;
 import org.jboss.shrinkwrap.resolver.api.maven.Maven;
 import org.jboss.shrinkwrap.resolver.api.maven.MavenArtifactInfo;
 import org.jboss.shrinkwrap.resolver.api.maven.MavenResolverSystem;
-import org.w3c.dom.Document;
-import org.w3c.dom.NodeList;
 
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.xpath.XPath;
-import javax.xml.xpath.XPathConstants;
-import javax.xml.xpath.XPathFactory;
 import java.io.*;
 import java.net.URL;
 import java.nio.channels.Channels;
@@ -28,13 +21,13 @@ import java.util.stream.Collectors;
 
 public class Main {
 
+    // maps from a Maven GA to a Dependency instance, containing all dependencies on this GA
     private final Map<String, Dependency> dependencies;
-    private final MavenResolverSystem mavenResolver;
+
     private final File outputDir;
 
     public Main() {
         dependencies = new HashMap<>();
-        mavenResolver = loadMavenResolver();
          outputDir = new File("output");
     }
 
@@ -69,6 +62,9 @@ public class Main {
                 .filter(Dependency::isProblemDependency)
                 .collect(Collectors.toList());
 
+
+//        System.out.println(problems.stream().map(Dependency::toString).collect(Collectors.joining("\r\n\r\n")));
+
         // output reports
         // strip .json file extension from input file name
         String outputFileName = inputFile.getName().substring(0, inputFile.getName().length() - 5);
@@ -98,11 +94,12 @@ public class Main {
     private void processPom(Project p, String pomUrl, File pomFile) {
         // we need to analyse the pom file to see if it has any modules, and if so, we download the pom files for
         // these modules and also process them
-        scanForModules(pomFile);
+        // TODO This was deprecated temporarily because we mainly care about released Maven artifacts, not web-based POMs
+        // scanForModules(pomFile);
 
         // collect all dependencies for this project
         try {
-            Arrays.stream(mavenResolver.loadPomFromFile(pomFile)
+            Arrays.stream(loadMavenResolver().loadPomFromFile(pomFile)
                     .importCompileAndRuntimeDependencies()
                     .resolve()
                     .withTransitivity()
@@ -159,26 +156,26 @@ public class Main {
         return Optional.empty();
     }
 
-    private void scanForModules(File pomFile) {
-        try {
-            FileInputStream fileIS = new FileInputStream(pomFile);
-            DocumentBuilderFactory builderFactory = DocumentBuilderFactory.newInstance();
-            DocumentBuilder builder = builderFactory.newDocumentBuilder();
-            Document xmlDocument = builder.parse(fileIS);
-            XPath xPath = XPathFactory.newInstance().newXPath();
-            String expression = "/project/modules/module";
-            NodeList nodeList = (NodeList) xPath.compile(expression).evaluate(xmlDocument, XPathConstants.NODESET);
-            for (int i = 0; i < nodeList.getLength(); i++) {
-                String name = nodeList.item(i).getTextContent();
-
-                // TODO enable this for modules to work
-                System.out.println("WARNING: Found modules - but ignoring in code for now!");
+//    private void scanForModules(File pomFile) {
+//        try {
+//            FileInputStream fileIS = new FileInputStream(pomFile);
+//            DocumentBuilderFactory builderFactory = DocumentBuilderFactory.newInstance();
+//            DocumentBuilder builder = builderFactory.newDocumentBuilder();
+//            Document xmlDocument = builder.parse(fileIS);
+//            XPath xPath = XPathFactory.newInstance().newXPath();
+//            String expression = "/project/modules/module";
+//            NodeList nodeList = (NodeList) xPath.compile(expression).evaluate(xmlDocument, XPathConstants.NODESET);
+//            for (int i = 0; i < nodeList.getLength(); i++) {
+//                String name = nodeList.item(i).getTextContent();
+//
+//                // TODO enable this for modules to work
+//                System.out.println("WARNING: Found modules - but ignoring in code for now!");
 //                project.getModules().add(new WebProject(name, project));
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
+//            }
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//        }
+//    }
 
     public static void main(String[] args) {
         new Main().run();

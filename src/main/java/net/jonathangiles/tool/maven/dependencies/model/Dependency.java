@@ -4,13 +4,18 @@ import net.jonathangiles.tool.maven.dependencies.project.Project;
 import org.jboss.shrinkwrap.resolver.api.maven.MavenArtifactInfo;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
+/**
+ * This class contains a groupId and artifactId (from Maven) representing a single dependency from one of the
+ * projects being scanned (either directly or transitively).
+ */
 public class Dependency {
     private final String groupId;
     private final String artifactId;
 
-    // map version string to all dependencies on that version
-    private final Map<String, Map<Project, DependencyVersionList>> dependenciesOnVersion;
+    // map version string to all dependencies on that version.
+    private final Map<Version, Map<Project, List<DependencyChain>>> dependenciesOnVersion;
 
     public Dependency(String groupId, String artifactId) {
         this.groupId = groupId;
@@ -19,11 +24,12 @@ public class Dependency {
     }
 
     public void addArtifact(Project project, MavenArtifactInfo artifact, List<MavenArtifactInfo> depChain) {
-        String version = artifact.getCoordinate().getVersion();
+        Version version = Version.build(artifact.getCoordinate().getVersion());
+
         dependenciesOnVersion
-                .computeIfAbsent(version, s -> new HashMap<>())
-                .computeIfAbsent(project, p -> new DependencyVersionList())
-                .add(new DependencyVersion(artifact, depChain));
+                .computeIfAbsent(version, v -> new HashMap<>())
+                .computeIfAbsent(project, p -> new ArrayList<>())
+                .add(new DependencyChain(depChain));
     }
 
     public String getGA() {
@@ -38,11 +44,11 @@ public class Dependency {
         return artifactId;
     }
 
-    public Collection<String> getVersions() {
+    public Collection<Version> getVersions() {
         return dependenciesOnVersion.keySet();
     }
 
-    public Map<Project, DependencyVersionList> getDependenciesOnVersion(String version) {
+    public Map<Project, List<DependencyChain>> getDependenciesOnVersion(Version version) {
         return dependenciesOnVersion.get(version);
     }
 
@@ -53,4 +59,17 @@ public class Dependency {
         return dependenciesOnVersion.size() > 1;
     }
 
+    @Override
+    public String toString() {
+        return "Dependency{" +
+                "groupId='" + groupId + '\'' +
+                ", artifactId='" + artifactId + '\'' +
+                ", dependenciesOnVersion=\r\n" +
+                    dependenciesOnVersion.entrySet().stream()
+                            .map(e -> {
+                                Map<Project, List<DependencyChain>> map = e.getValue();
+                                return "Version: " + e.getKey() + " -> \r\n" + map.entrySet().stream().map(e1 -> "  " + e1.getKey() + " -> " + e1.getValue()).collect(Collectors.joining("\r\n"));
+                            }).collect(Collectors.joining("\r\n")) +
+                '}';
+    }
 }

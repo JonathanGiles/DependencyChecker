@@ -34,12 +34,12 @@ td.version {
 }
 .tooltip .tooltiptext {
     visibility: hidden;
-    background-color: #424242;
+    background-color: black;
     color: #fff;
     white-space: nowrap;
     text-align: left;
     padding: 5px;
-    font-size: 12px;
+    font-size: 14px;
     position: absolute;
     z-index: 1;
     margin-top: 7px;
@@ -54,10 +54,17 @@ td.version {
     margin-left: -5px;
     border-width: 5px;
     border-style: solid;
-    border-color: transparent transparent #424242 transparent;
+    border-color: transparent transparent black transparent;
 }
 .tooltip:hover .tooltiptext {
     visibility: visible;
+}
+
+.success {
+    color: #00CC00;
+}
+.fail {
+    color: #CC0000;
 }
 
 @media only screen and (max-width: 1350px) {

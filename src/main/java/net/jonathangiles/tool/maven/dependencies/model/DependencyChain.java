@@ -2,19 +2,17 @@ package net.jonathangiles.tool.maven.dependencies.model;
 
 import org.jboss.shrinkwrap.resolver.api.maven.MavenArtifactInfo;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
-public class DependencyVersion {
+public class DependencyChain {
 
-    private transient final MavenArtifactInfo artifactInfo;
+    private final List<String> dependencyChain;
 
-    private List<String> dependencyChain;
-
-    public DependencyVersion(MavenArtifactInfo artifact, List<MavenArtifactInfo> depChain) {
-        this.artifactInfo = artifact;
-
-        // convert into string form up-front, because then this can be serialised out to json easily
+    DependencyChain(List<MavenArtifactInfo> depChain) {
         dependencyChain = depChain.stream()
                 .map(MavenArtifactInfo::getCoordinate)
                 .map(coordinate -> coordinate.getGroupId() + ":" + coordinate.getArtifactId() + ":" + coordinate.getVersion())
@@ -29,5 +27,12 @@ public class DependencyVersion {
 
     public List<String> getDependencyChain() {
         return dependencyChain;
+    }
+
+    @Override
+    public String toString() {
+        return "DependencyVersion{" +
+                "dependencyChain=" + (dependencyChain.isEmpty() ? "<no chain>" : dependencyChain) +
+                '}';
     }
 }

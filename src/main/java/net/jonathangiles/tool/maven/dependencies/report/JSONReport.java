@@ -1,9 +1,9 @@
 package net.jonathangiles.tool.maven.dependencies.report;
 
 import com.google.gson.GsonBuilder;
+import net.jonathangiles.tool.maven.dependencies.gson.SerializerForDependencyChain;
 import net.jonathangiles.tool.maven.dependencies.model.Dependency;
-import net.jonathangiles.tool.maven.dependencies.model.DependencyVersionList;
-import net.jonathangiles.tool.maven.dependencies.gson.SerializerForDependencyVersionList;
+import net.jonathangiles.tool.maven.dependencies.model.DependencyChain;
 import net.jonathangiles.tool.maven.dependencies.project.Project;
 
 import java.io.File;
@@ -21,8 +21,7 @@ public class JSONReport implements Report {
         try {
             new GsonBuilder()
                     .setPrettyPrinting()
-//                    .registerTypeAdapter(DependencyVersion.class, new SerializerForDependencyVersion())
-                    .registerTypeAdapter(DependencyVersionList.class, new SerializerForDependencyVersionList())
+                    .registerTypeAdapter(DependencyChain.class, new SerializerForDependencyChain())
                     .create()
                     .toJson(problems, new FileWriter(outFile));
         } catch (Exception e) {
