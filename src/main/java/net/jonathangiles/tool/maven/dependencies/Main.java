@@ -26,9 +26,13 @@ public class Main {
 
     private final File outputDir;
 
+    public static void main(String[] args) {
+        new Main().run();
+    }
+
     public Main() {
         dependencies = new HashMap<>();
-         outputDir = new File("output");
+        outputDir = new File("output");
     }
 
     public void run() {
@@ -62,14 +66,11 @@ public class Main {
                 .filter(Dependency::isProblemDependency)
                 .collect(Collectors.toList());
 
-
-//        System.out.println(problems.stream().map(Dependency::toString).collect(Collectors.joining("\r\n\r\n")));
-
         // output reports
         // strip .json file extension from input file name
         String outputFileName = inputFile.getName().substring(0, inputFile.getName().length() - 5);
 
-        new PlainTextReport().report(projects, problems);
+        new PlainTextReport(new File(outputDir, outputFileName + ".txt")).report(projects, problems);
         new HTMLReport(new File(outputDir, outputFileName + ".html")).report(projects, problems);
         new JSONReport(new File(outputDir, outputFileName + ".json")).report(projects, problems);
     }
@@ -176,8 +177,4 @@ public class Main {
 //            e.printStackTrace();
 //        }
 //    }
-
-    public static void main(String[] args) {
-        new Main().run();
-    }
 }

@@ -24,6 +24,8 @@ public class JSONReport implements Report {
                     .registerTypeAdapter(DependencyChain.class, new SerializerForDependencyChain())
                     .create()
                     .toJson(problems, new FileWriter(outFile));
+
+            System.out.println("JSON report written to " + outFile);
         } catch (Exception e) {
             e.printStackTrace();
         }

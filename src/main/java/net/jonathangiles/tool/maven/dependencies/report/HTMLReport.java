@@ -71,6 +71,8 @@ public class HTMLReport implements Report {
         } catch (IOException e) {
             e.printStackTrace();
         }
+
+        System.out.println("HTML report written to " + outFile);
     }
 
     private void printProjects(List<Project> projects) {
