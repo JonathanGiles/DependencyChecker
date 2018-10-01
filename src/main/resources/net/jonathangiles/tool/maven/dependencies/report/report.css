@@ -69,6 +69,9 @@ td.version {
 }
 
 @media only screen and (max-width: 1350px) {
+    body, table {
+        font-size: 25px;
+    }
     table {
         width: 95%;
     }
