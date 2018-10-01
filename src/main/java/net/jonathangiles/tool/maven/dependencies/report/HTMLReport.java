@@ -29,6 +29,7 @@ public class HTMLReport implements Report {
 
     @Override
     public void report(List<Project> projects, List<Dependency> problems) {
+        out("<!DOCTYPE html>");
         out("<html>");
         out("  <head>");
         out("    <title>Dependency Issues Report</title>");
@@ -75,7 +76,7 @@ public class HTMLReport implements Report {
     private void printProjects(List<Project> projects) {
         out("    <table class=\"condensed\">");
         out("      <thead>");
-        out("        <tr><th colspan=\"2\">Maven Releases Scanned for this Report</th></tr>");
+        out("        <tr><th colspan=\"2\"><strong>Maven Releases Scanned for this Report</strong></th></tr>");
         out("        <tr><th>Library Analysed</th><th>Latest Released Version</th></tr>");
         out("      </thead>");
         out("      <tbody>");
@@ -97,7 +98,7 @@ public class HTMLReport implements Report {
 
         out("    <table>");
         out("      <thead>");
-        out("        <tr><th colspan=\"2\"><u>Dependency:</u> " + dependency.getGA() +
+        out("        <tr><th colspan=\"2\"><strong>Dependency:</strong> " + dependency.getGA() +
                              "<br/>Latest Released Version: " + latestReleasedVersion + "</th></tr>");
         out("      </thead>");
         out("      <tbody>");
