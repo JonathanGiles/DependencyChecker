@@ -4,6 +4,18 @@ This tool helps to determine when Maven projects bring in  dependencies that are
 words, if two projects each have a dependency on the same library, but with different versions, there is likely to be
 a conflict that arises because of this, if users were to depend on both Maven projects and their transitive dependencies.
 
+## Getting Started
+
+At present there isn't a great deal of convenience available to users of this tool. So, in short, to use it you do the 
+following:
+
+1. Clone this repo onto your system
+2. Read the instructions below on how to specify your configuration(s).
+3. Run the app (by using your locally installed Maven) with the following command: `mvn clean package exec:java`
+4. Wait for the application to finish running, and then check the `output` directory.
+
+## Configuration
+
 This project works by reading in a directory of json files, and writing out reports to another directory. The input
 format is of the following form:
 
