@@ -4,6 +4,8 @@ This tool helps to determine when Maven projects bring in  dependencies that are
 words, if two projects each have a dependency on the same library, but with different versions, there is likely to be
 a conflict that arises because of this, if users were to depend on both Maven projects and their transitive dependencies.
 
+An example report for the [Azure Java SDKs can be viewed online](https://azurejavadocs.z5.web.core.windows.net/dependency-conflicts.html).
+
 ## Getting Started
 
 At present there isn't a great deal of convenience available to users of this tool. So, in short, to use it you do the 
@@ -45,7 +47,19 @@ running the application, a JSON and a HTML report will be written out to the `ou
 as the input file. This application can run with any number of input files, with a report being generated separately for 
 each input.
 
-An example report for the [Azure Java SDKs can be viewed online](https://azurejavadocs.z5.web.core.windows.net/dependency-conflicts.html).
+### Custom Reporters
+
+This project presently ships with three built-in reporters (`plain-text`, `json`, and `html`). Should there be a use case
+where these are not sufficient, it is possible to include your own reporter using the standard Java SPI approach:
+
+1. Create a class that implements the `net.jonathangiles.tool.maven.dependencies.report.Reporter` interface.
+2. Create a `net.jonathangiles.tool.maven.dependencies.report.Reporter` text file in the `META-INF/services` directory.
+   Inside this text file add the fully-qualified class name (i.e. package name and class name). If you have multiple 
+   reporters, add one line for each of them.
+3. Create a JAR file containing the implementation and the text file.
+4. Run the dependency checker tool with your jar file on the classpath. If no reporters are specified, the dependency 
+   checker will by default output all report types. If you only want a subset of the reporters, you may specify the names
+   of the reporters you want to run as the arguments into the tool.
 
 ## Contributing
 

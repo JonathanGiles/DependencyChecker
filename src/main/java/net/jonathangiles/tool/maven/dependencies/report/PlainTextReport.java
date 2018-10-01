@@ -13,16 +13,20 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-public class PlainTextReport implements Report {
-    private final File outFile;
+public class PlainTextReport implements Reporter {
     private final StringBuilder sb;
 
-    public PlainTextReport(File outFile) {
-        this.outFile = outFile;
+    public PlainTextReport() {
         this.sb = new StringBuilder();
     }
 
-    public void report(List<Project> projects, List<Dependency> problems) {
+    @Override
+    public String getName() {
+        return "plain-text";
+    }
+
+    @Override
+    public void report(List<Project> projects, List<Dependency> problems, File outDir, String outFileName) {
         out("Dependency Issues Report:");
         out("=====================================================");
         problems.stream()
@@ -44,6 +48,7 @@ public class PlainTextReport implements Report {
                 }));
 
         // write out to the output file
+        File outFile = new File(outDir, outFileName + ".txt");
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(outFile))) {
             writer.write(sb.toString());
         } catch (IOException e) {

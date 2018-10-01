@@ -13,22 +13,25 @@ import java.nio.file.Paths;
 import java.util.*;
 import java.util.stream.Collectors;
 
-public class HTMLReport implements Report {
-    private final File outFile;
+public class HTMLReport implements Reporter {
     private final StringBuilder sb;
 
     private final Map<String, Version> resolvedVersionsWithNoQualifiers;
     private final Map<String, Version> resolvedVersions; // this map contains values with or without qualifiers
 
-    public HTMLReport(File outFile) {
-        this.outFile = outFile;
+    public HTMLReport() {
         this.sb = new StringBuilder();
         this.resolvedVersionsWithNoQualifiers = new HashMap<>();
         this.resolvedVersions = new HashMap<>();
     }
 
     @Override
-    public void report(List<Project> projects, List<Dependency> problems) {
+    public String getName() {
+        return "html";
+    }
+
+    @Override
+    public void report(List<Project> projects, List<Dependency> problems, File outDir, String outFileName) {
         out("<!DOCTYPE html>");
         out("<html>");
         out("  <head>");
@@ -66,6 +69,7 @@ public class HTMLReport implements Report {
         out("</html>");
 
         // write out to the output file
+        File outFile = new File(outDir, outFileName + ".html");
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(outFile))) {
             writer.write(sb.toString());
         } catch (IOException e) {
@@ -219,7 +223,6 @@ public class HTMLReport implements Report {
 
     private Version getVersionFromGAV(String gav) {
         String version = gav.substring(gav.lastIndexOf(":") + 1);
-//        String version = Maven.resolver().resolve(gav).withoutTransitivity().asSingleResolvedArtifact().getCoordinate().getVersion();
-        return version != null ? Version.build(version) : null;
+        return Version.build(version);
     }
 }

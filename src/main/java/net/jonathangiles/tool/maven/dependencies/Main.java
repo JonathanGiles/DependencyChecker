@@ -5,9 +5,7 @@ import com.google.gson.reflect.TypeToken;
 import net.jonathangiles.tool.maven.dependencies.gson.DeserializerForProject;
 import net.jonathangiles.tool.maven.dependencies.model.Dependency;
 import net.jonathangiles.tool.maven.dependencies.project.Project;
-import net.jonathangiles.tool.maven.dependencies.report.HTMLReport;
-import net.jonathangiles.tool.maven.dependencies.report.JSONReport;
-import net.jonathangiles.tool.maven.dependencies.report.PlainTextReport;
+import net.jonathangiles.tool.maven.dependencies.report.*;
 import org.jboss.shrinkwrap.resolver.api.maven.Maven;
 import org.jboss.shrinkwrap.resolver.api.maven.MavenArtifactInfo;
 import org.jboss.shrinkwrap.resolver.api.maven.MavenResolverSystem;
@@ -25,14 +23,19 @@ public class Main {
     private final Map<String, Dependency> dependencies;
 
     private final File outputDir;
+    private final String[] reportNames;
 
     public static void main(String[] args) {
-        new Main().run();
+        new Main(args).run();
     }
 
-    public Main() {
+    public Main(String[] args) {
         dependencies = new HashMap<>();
         outputDir = new File("output");
+
+        // for now the args are a set of reports that we want to run.
+        // If the array is empty, it means to run ALL reports (didn't see that coming, huh?)
+        reportNames = args;
     }
 
     public void run() {
@@ -41,6 +44,12 @@ public class Main {
         } else {
             outputDir.mkdirs();
         }
+
+        System.out.println("Found the following reporters available for use:");
+        Reporters.getReporterNames().forEach(r -> System.out.println("  - " + r));
+
+        System.out.println("Will output the following report types:");
+        Reporters.getReporters(reportNames).forEach(r -> System.out.println("  - " + r.getName()));
 
         // we run zero or more iterations, once for each input in the input directory
         Arrays.stream(loadInputs()).forEach(this::runScan);
@@ -70,9 +79,8 @@ public class Main {
         // strip .json file extension from input file name
         String outputFileName = inputFile.getName().substring(0, inputFile.getName().length() - 5);
 
-        new PlainTextReport(new File(outputDir, outputFileName + ".txt")).report(projects, problems);
-        new HTMLReport(new File(outputDir, outputFileName + ".html")).report(projects, problems);
-        new JSONReport(new File(outputDir, outputFileName + ".json")).report(projects, problems);
+        Reporters.getReporters(reportNames)
+                .forEach(reporter -> reporter.report(projects, problems, outputDir, outputFileName));
     }
 
     private List<Project> loadProjects(File inputFile) {

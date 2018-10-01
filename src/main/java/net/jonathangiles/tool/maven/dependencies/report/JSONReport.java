@@ -10,15 +10,18 @@ import java.io.File;
 import java.io.FileWriter;
 import java.util.List;
 
-public class JSONReport implements Report {
-    private final File outFile;
+public class JSONReport implements Reporter {
 
-    public JSONReport(File outFile) {
-        this.outFile = outFile;
+    @Override
+    public String getName() {
+        return "json";
     }
 
-    public void report(List<Project> projects, List<Dependency> problems) {
+    @Override
+    public void report(List<Project> projects, List<Dependency> problems, File outDir, String outFileName) {
         try {
+            File outFile = new File(outDir, outFileName + ".json");
+
             new GsonBuilder()
                     .setPrettyPrinting()
                     .registerTypeAdapter(DependencyChain.class, new SerializerForDependencyChain())
