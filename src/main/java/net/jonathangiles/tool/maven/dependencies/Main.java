@@ -177,7 +177,9 @@ public class Main {
         System.out.print("   Downloading...");
         try {
             URL url = new URL(pomPath);
-            File outputFile = new File("temp/" + project.getFullProjectName() + "/pom.xml");
+            String f = "temp/" + project.getFullProjectName() + "/pom.xml";
+            f = f.replace(":", "-");
+            File outputFile = new File(f);
             outputFile.getParentFile().mkdirs();
             ReadableByteChannel rbc = Channels.newChannel(url.openStream());
             FileOutputStream fos = new FileOutputStream(outputFile);
