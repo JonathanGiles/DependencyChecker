@@ -19,7 +19,9 @@ following:
 ## Configuration
 
 This project works by reading in a directory of json files, and writing out reports to another directory. The input
-format is of the following form:
+format is of one of the following two forms:
+
+**Long form:**
 
 ```json
 [
@@ -36,10 +38,23 @@ format is of the following form:
 ]
 ```
 
+**Short form:**
+
+```json
+[
+  "com.microsoft.azure:azure-batch:4.0.1",
+  "com.microsoft.azure:azure-keyvault:1.1.1"
+]
+```
+
 This input format should be recognisable to anyone familiar with Maven POM files - we are simply specifying the
 `groupId`, `artifactId`, and `version` values of a particular release. This application will then retrieve the pom.xml
 file for this project from Maven Central (at present there is only support for Maven Central), and do the required
 analysis.
+
+Including the `version` value is optional - if it is not specified the tool will attempt to resolve the latest version
+of the artifact and will use that. This is helpful if you just want to track the latest releases of particular SDKs, as
+you no longer need to ensure you are checking the latest version.
 
 There may be any number of projects in this json input, but shown above is just two. This file should be placed within
 an `input` directory beside the application, and it can be named anything, as long as the file ends with `.json`. After

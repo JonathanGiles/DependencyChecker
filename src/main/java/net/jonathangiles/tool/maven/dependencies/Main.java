@@ -6,9 +6,10 @@ import net.jonathangiles.tool.maven.dependencies.gson.DeserializerForProject;
 import net.jonathangiles.tool.maven.dependencies.model.Dependency;
 import net.jonathangiles.tool.maven.dependencies.project.Project;
 import net.jonathangiles.tool.maven.dependencies.report.*;
-import org.jboss.shrinkwrap.resolver.api.maven.Maven;
+import org.apache.commons.cli.*;
 import org.jboss.shrinkwrap.resolver.api.maven.MavenArtifactInfo;
-import org.jboss.shrinkwrap.resolver.api.maven.MavenResolverSystem;
+import org.jboss.shrinkwrap.resolver.api.maven.MavenResolvedArtifact;
+import org.jboss.shrinkwrap.resolver.api.maven.ScopeType;
 
 import java.io.*;
 import java.net.URL;
@@ -16,11 +17,18 @@ import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+import static net.jonathangiles.tool.maven.dependencies.misc.Util.*;
 
 public class Main {
 
+    private static final String COMMAND_SHOW_ALL = "showAll";
+
     // maps from a Maven GA to a Dependency instance, containing all dependencies on this GA
     private final Map<String, Dependency> dependencies;
+
+    private CommandLine commands;
 
     private final File outputDir;
     private final String[] reportNames;
@@ -30,6 +38,19 @@ public class Main {
     }
 
     public Main(String[] args) {
+        Options options = new Options();
+
+        options.addOption(COMMAND_SHOW_ALL, false, "If true, report all dependencies. If false, only report dependency conflicts");
+
+        try {
+            CommandLineParser parser = new DefaultParser();
+            commands = parser.parse(options, args);
+        } catch (ParseException e) {
+            e.printStackTrace();
+        }
+
+        System.setProperty("os.detected.classifier", "linux-x86_64");
+
         dependencies = new HashMap<>();
         outputDir = new File("output");
 
@@ -55,10 +76,6 @@ public class Main {
         Arrays.stream(loadInputs()).forEach(this::runScan);
     }
 
-    private MavenResolverSystem loadMavenResolver() {
-        return Maven.resolver();
-    }
-
     private File[] loadInputs() {
         return new File("input").listFiles(((dir, name) -> name.endsWith("json")));
     }
@@ -72,7 +89,7 @@ public class Main {
 
         // analyse results
         final List<Dependency> problems = dependencies.values().stream()
-                .filter(Dependency::isProblemDependency)
+                .filter(dependency -> commands.hasOption(COMMAND_SHOW_ALL) || dependency.isProblemDependency())
                 .collect(Collectors.toList());
 
         // output reports
@@ -101,6 +118,8 @@ public class Main {
     }
 
     private void processPom(Project p, String pomUrl, File pomFile) {
+        System.out.println("   Processing...");
+
         // we need to analyse the pom file to see if it has any modules, and if so, we download the pom files for
         // these modules and also process them
         // TODO This was deprecated temporarily because we mainly care about released Maven artifacts, not web-based POMs
@@ -108,16 +127,24 @@ public class Main {
 
         // collect all dependencies for this project
         try {
-            Arrays.stream(loadMavenResolver().loadPomFromFile(pomFile)
-                    .importCompileAndRuntimeDependencies()
+            MavenResolvedArtifact[] result = getMavenResolver().loadPomFromFile(pomFile)
+                    .importDependencies(ScopeType.values())
+//                    .importCompileAndRuntimeDependencies()
                     .resolve()
                     .withTransitivity()
-                    .asResolvedArtifact())
+                    .asResolvedArtifact();
+
+            if (result.length == 0) {
+                System.err.println("Failed to find any dependencies for " + p.getFullProjectName() + " - exiting");
+                System.exit(-1);
+            }
+
+            Arrays.stream(result)
                     .forEach(artifact -> processArtifact(p, artifact, new ArrayList<>()));
         } catch (IllegalArgumentException e) {
             // we get an IAE if there are no dependencies specified in the resolution. This is fine - we just carry on
         } catch (Exception e) {
-            System.out.println("Skipped printing exception");
+            System.err.println("Skipped printing exception");
         }
 
         // now process all modules that we found
@@ -158,11 +185,9 @@ public class Main {
             System.out.println("Success");
             return Optional.of(outputFile);
         } catch (Exception e) {
-            System.out.println("Failed - exiting");
-            e.printStackTrace();
-            System.exit(-1);
+            System.err.println("Failed to download pom file " + pomPath);
+            return Optional.empty();
         }
-        return Optional.empty();
     }
 
 //    private void scanForModules(File pomFile) {

@@ -1,5 +1,7 @@
 package net.jonathangiles.tool.maven.dependencies.project;
 
+import net.jonathangiles.tool.maven.dependencies.misc.Util;
+import net.jonathangiles.tool.maven.dependencies.model.Version;
 import org.jboss.shrinkwrap.resolver.api.maven.Maven;
 
 import java.util.ArrayList;
@@ -9,16 +11,20 @@ public class MavenReleasedProject implements Project {
 
     private final String groupId;
     private final String artifactId;
-    private final String version;
-
-
+    private final Version version;
 
     private final List<WebProject> modules;
 
     public MavenReleasedProject(String groupId, String artifactId, String version) {
         this.groupId = groupId;
         this.artifactId = artifactId;
-        this.version = version;
+        this.version = version != null ? Version.build(version) : Util.getLatestVersionInMavenCentral(groupId, artifactId, false);
+
+        if (this.version == Version.UNKNOWN) {
+            System.err.println("failure on " + groupId + ":" + artifactId + ":" + version);
+            System.exit(-1);
+        }
+
         this.modules = new ArrayList<>();
     }
 
@@ -36,8 +42,15 @@ public class MavenReleasedProject implements Project {
     public List<String> getPomUrls() {
         List<String> urls = new ArrayList<>();
 
-        String url = "http://central.maven.org/maven2/"
-                + groupId.replace(".", "/")
+        String url;
+
+        if (version.isSnapshot()) {
+            url = "https://oss.sonatype.org/content/repositories/snapshots/";
+        } else {
+            url = "http://central.maven.org/maven2/";
+        }
+
+        url += groupId.replace(".", "/")
                 + "/"
                 + artifactId.replace(".", "/")
                 + "/"

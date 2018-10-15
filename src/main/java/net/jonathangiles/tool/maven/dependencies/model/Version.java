@@ -5,17 +5,23 @@ import java.util.Map;
 import java.util.Objects;
 
 public final class Version implements Comparable<Version> {
+    private static final String UNKNOWN_VERSION_STRING = "<unknown version>";
+    public static final Version UNKNOWN = new Version("");
+
     private static Map<String, Version> parseMap = new HashMap<>();
 
-    private int major;
-    private int minor;
-    private int patch;
+    private int major = -1;
+    private int minor = -1;
+    private int patch = -1;
     private String extension;
+    private boolean isSnapshot;
 
     private String versionString;
 
     private Version(String version) {
         this.versionString = version;
+        this.isSnapshot = version.contains("SNAPSHOT");
+
         String[] vals = version.split("\\.");
 
         // we need at least major!
@@ -25,8 +31,7 @@ public final class Version implements Comparable<Version> {
                 major = Integer.parseInt(val);
             }
         } catch (Exception e) {
-            System.out.println("Failed to parse version string '" + version + "' - exiting!");
-            System.exit(-1);
+            System.err.println("Failed to parse version string '" + version + "'!");
         }
 
         try {
@@ -35,7 +40,7 @@ public final class Version implements Comparable<Version> {
                 minor = Integer.parseInt(val);
             }
         } catch (Exception e) {
-            System.out.println("WARNING: Failed to completely parse version string '" + version + "'");
+            System.err.println("WARNING: Failed to completely parse version string '" + version + "'");
         }
 
         try {
@@ -51,8 +56,12 @@ public final class Version implements Comparable<Version> {
                 }
             }
         } catch (Exception e) {
-            System.out.println("WARNING: Failed to completely parse version string '" + version + "'");
+            System.err.println("WARNING: Failed to completely parse version string '" + version + "'");
         }
+    }
+
+    public boolean isSnapshot() {
+        return isSnapshot;
     }
 
     public static Version build(String version) {
@@ -61,6 +70,10 @@ public final class Version implements Comparable<Version> {
 
     @Override
     public int compareTo(Version v) {
+        if (major == -1) {
+            return versionString.compareTo(v.versionString);
+        }
+
         int t = Integer.compare(major, v.major);
         if (t != 0) return t;
 
@@ -76,6 +89,11 @@ public final class Version implements Comparable<Version> {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         Version version = (Version) o;
+
+        if (major == -1) {
+            return Objects.equals(versionString, version.versionString);
+        }
+
         return major == version.major &&
                 minor == version.minor &&
                 patch == version.patch &&
@@ -84,7 +102,7 @@ public final class Version implements Comparable<Version> {
 
     @Override
     public int hashCode() {
-        return Objects.hash(major, minor, patch, versionString);
+        return major == -1? Objects.hash(versionString) : Objects.hash(major, minor, patch, versionString);
     }
 
     public int getMajor() {
@@ -105,6 +123,6 @@ public final class Version implements Comparable<Version> {
 
     @Override
     public String toString() {
-        return major + "." + minor + "." + patch + (extension != null ? "-" + extension : "");
+        return versionString;
     }
 }

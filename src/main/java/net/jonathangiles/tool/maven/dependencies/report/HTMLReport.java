@@ -4,8 +4,6 @@ import net.jonathangiles.tool.maven.dependencies.model.Dependency;
 import net.jonathangiles.tool.maven.dependencies.model.DependencyChain;
 import net.jonathangiles.tool.maven.dependencies.model.Version;
 import net.jonathangiles.tool.maven.dependencies.project.Project;
-import org.jboss.shrinkwrap.resolver.api.maven.Maven;
-import org.jboss.shrinkwrap.resolver.api.maven.coordinate.MavenCoordinate;
 
 import java.io.*;
 import java.nio.file.Files;
@@ -13,16 +11,13 @@ import java.nio.file.Paths;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static net.jonathangiles.tool.maven.dependencies.misc.Util.*;
+
 public class HTMLReport implements Reporter {
     private final StringBuilder sb;
 
-    private final Map<String, Version> resolvedVersionsWithNoQualifiers;
-    private final Map<String, Version> resolvedVersions; // this map contains values with or without qualifiers
-
     public HTMLReport() {
         this.sb = new StringBuilder();
-        this.resolvedVersionsWithNoQualifiers = new HashMap<>();
-        this.resolvedVersions = new HashMap<>();
     }
 
     @Override
@@ -61,7 +56,9 @@ public class HTMLReport implements Reporter {
         printProjects(projects);
 
         // results
-        problems.stream().filter(Dependency::isProblemDependency).forEach(this::process);
+        problems.stream()
+                .sorted(Comparator.comparing(Dependency::getGA))
+                .forEach(this::process);
 
         out("      <small>Report generated using <a href=\"https://github.com/JonathanGiles/DependencyChecker\">DependencyChecker</a>, developed by Jonathan Giles</small>");
         out("    </center>");
@@ -156,7 +153,8 @@ public class HTMLReport implements Reporter {
                                     }
 
                                     String gav = chainItems.get(i);
-                                    Version latestVersion = getLatestVersionInMavenCentral(gav, false);
+                                    String ga = gav.substring(0, gav.lastIndexOf(":"));
+                                    Version latestVersion = getLatestVersionInMavenCentral(ga, false);
 
                                     if (latestVersion != null) {
                                         Version thisVersion = getVersionFromGAV(gav);
@@ -205,24 +203,5 @@ public class HTMLReport implements Reporter {
     private void out(String s) {
         sb.append(s);
         sb.append("\r\n");
-    }
-
-    private Version getLatestVersionInMavenCentral(String ga, boolean acceptQualifiers) {
-        Map<String, Version> mapToLookup = acceptQualifiers ? resolvedVersions : resolvedVersionsWithNoQualifiers;
-
-        return mapToLookup.computeIfAbsent(ga, key -> {
-            Optional<MavenCoordinate> result = Maven.resolver().resolveVersionRange(key + ":[0.1,)")
-                            .getVersions()
-                            .stream()
-                            .filter(coor -> acceptQualifiers || !coor.getVersion().contains("-")) // we don't want -SNAPSHOT, etc
-                            .reduce((first, second) -> second); // the highest version is the last version
-
-            return result.isPresent() ? Version.build(result.get().getVersion()) : null;
-        });
-    }
-
-    private Version getVersionFromGAV(String gav) {
-        String version = gav.substring(gav.lastIndexOf(":") + 1);
-        return Version.build(version);
     }
 }
