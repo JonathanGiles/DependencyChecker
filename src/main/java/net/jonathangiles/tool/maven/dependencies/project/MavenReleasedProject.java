@@ -39,6 +39,11 @@ public class MavenReleasedProject implements Project {
     }
 
     @Override
+    public Project getParent() {
+        return null;
+    }
+
+    @Override
     public List<String> getPomUrls() {
         List<String> urls = new ArrayList<>();
 

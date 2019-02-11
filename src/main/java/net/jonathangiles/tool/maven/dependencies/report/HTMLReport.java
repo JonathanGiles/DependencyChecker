@@ -58,6 +58,7 @@ public class HTMLReport implements Reporter {
         // results
         problems.stream()
                 .sorted(Comparator.comparing(Dependency::getGA))
+                .sorted(Comparator.comparing(Dependency::isProblemDependency).reversed())
                 .forEach(this::process);
 
         out("      <small>Report generated using <a href=\"https://github.com/JonathanGiles/DependencyChecker\">DependencyChecker</a>, developed by Jonathan Giles</small>");
@@ -98,10 +99,11 @@ public class HTMLReport implements Reporter {
 
     private void process(Dependency dependency) {
         Version latestReleasedVersion = getLatestVersionInMavenCentral(dependency.getGA(), false);
+        String headerClass = dependency.isProblemDependency() ? "problem" : "";
 
         out("    <table>");
         out("      <thead>");
-        out("        <tr><th colspan=\"2\"><strong>Dependency:</strong> " + dependency.getGA() +
+        out("        <tr><th colspan=\"2\" class=\"" + headerClass + "\"><strong>Dependency:</strong> " + dependency.getGA() +
                              "<br/>Latest Released Version: " + latestReleasedVersion + "</th></tr>");
         out("      </thead>");
         out("      <tbody>");
@@ -153,7 +155,9 @@ public class HTMLReport implements Reporter {
                                     }
 
                                     String gav = chainItems.get(i);
-                                    String ga = gav.substring(0, gav.lastIndexOf(":"));
+
+                                    int colonIndex = gav.lastIndexOf(":");
+                                    String ga = colonIndex == -1 ? gav : gav.substring(0, colonIndex);
                                     Version latestVersion = getLatestVersionInMavenCentral(ga, false);
 
                                     if (latestVersion != null) {

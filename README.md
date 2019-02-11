@@ -19,9 +19,9 @@ following:
 ## Configuration
 
 This project works by reading in a directory of json files, and writing out reports to another directory. The input
-format is of one of the following two forms:
+format is of one of the following three forms:
 
-**Long form:**
+**Long form, downloading from Maven repositories:**
 
 ```json
 [
@@ -38,7 +38,7 @@ format is of one of the following two forms:
 ]
 ```
 
-**Short form:**
+**Short form, downloading from Maven repositories:**
 
 ```json
 [
@@ -47,18 +47,29 @@ format is of one of the following two forms:
 ]
 ```
 
-This input format should be recognisable to anyone familiar with Maven POM files - we are simply specifying the
-`groupId`, `artifactId`, and `version` values of a particular release. This application will then retrieve the pom.xml
-file for this project from Maven Central (at present there is only support for Maven Central), and do the required
-analysis.
+** Downloading POM files from other locations:**
 
-Including the `version` value is optional - if it is not specified the tool will attempt to resolve the latest version
-of the artifact and will use that. This is helpful if you just want to track the latest releases of particular SDKs, as
-you no longer need to ensure you are checking the latest version.
+```json
+[
+  {
+    "projectName": "azure-sdk-for-java",
+    "pomUrls": ["https://raw.githubusercontent.com/Azure/azure-sdk-for-java/master/pom.client.xml"]
+  }
+]
+```
 
-There may be any number of projects in this json input, but shown above is just two. This file should be placed within
-an `input` directory beside the application, and it can be named anything, as long as the file ends with `.json`. After
-running the application, a JSON and a HTML report will be written out to the `output` folder, with the same file name
+This input format in the first two formats should be recognisable to anyone familiar with Maven POM files - we are simply 
+specifying the `groupId`, `artifactId`, and `version` values of a particular release. Including the `version` value is 
+optional - if it is not specified the tool will attempt to resolve the latest version of the artifact and will use that. 
+This is helpful if you just want to track the latest releases of particular SDKs, as you no longer need to ensure you are
+checking the latest version.
+
+The final format above allows us to avoid Maven for our initial configuration, and to instead download POM files from 
+other locations, such as GitHub. This allows for a more real-time project 'pulse' to be measured.
+
+There may be any number of projects in this json input. This file should be placed within an `input` directory beside 
+the application, and it can be named anything, as long as the file ends with `.json`. After
+running the application, a number of reports will be written out to the `output` folder, with the same file name
 as the input file. This application can run with any number of input files, with a report being generated separately for 
 each input.
 

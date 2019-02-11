@@ -10,5 +10,7 @@ public interface Project {
 
     List<String> getPomUrls();
 
+    Project getParent();
+
     List<WebProject> getModules();
 }

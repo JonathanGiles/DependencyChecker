@@ -19,6 +19,9 @@ th, td {
 tr:nth-child(even) {
     background-color: #f2f2f2;
 }
+th.problem {
+    background-color: #af2e2e;
+}
 th {
     background-color: #2E7CAF;
     color: white;

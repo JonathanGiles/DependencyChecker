@@ -5,25 +5,33 @@ import com.google.gson.reflect.TypeToken;
 import net.jonathangiles.tool.maven.dependencies.gson.DeserializerForProject;
 import net.jonathangiles.tool.maven.dependencies.model.Dependency;
 import net.jonathangiles.tool.maven.dependencies.project.Project;
+import net.jonathangiles.tool.maven.dependencies.project.WebProject;
 import net.jonathangiles.tool.maven.dependencies.report.*;
 import org.apache.commons.cli.*;
 import org.jboss.shrinkwrap.resolver.api.maven.MavenArtifactInfo;
 import org.jboss.shrinkwrap.resolver.api.maven.MavenResolvedArtifact;
 import org.jboss.shrinkwrap.resolver.api.maven.ScopeType;
+import org.w3c.dom.Document;
+import org.w3c.dom.NodeList;
 
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.xpath.XPath;
+import javax.xml.xpath.XPathConstants;
+import javax.xml.xpath.XPathFactory;
 import java.io.*;
 import java.net.URL;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
 import java.util.*;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static net.jonathangiles.tool.maven.dependencies.misc.Util.*;
 
 public class Main {
 
-    private static final String COMMAND_SHOW_ALL = "showAll";
+    private static final String COMMAND_SHOW_ALL = "showall";
+    private static final String COMMAND_REPORTERS = "reporters";
 
     // maps from a Maven GA to a Dependency instance, containing all dependencies on this GA
     private final Map<String, Dependency> dependencies;
@@ -40,7 +48,11 @@ public class Main {
     public Main(String[] args) {
         Options options = new Options();
 
-        options.addOption(COMMAND_SHOW_ALL, false, "If true, report all dependencies. If false, only report dependency conflicts");
+        // Enabled with the -showAll flag
+        options.addOption(COMMAND_SHOW_ALL, false, "If specified, report all dependencies. If false, only report dependency conflicts");
+
+        // A string, e.g. '-reporters html,json,plain-text'
+        options.addOption(COMMAND_REPORTERS, "A comma-separated string of the reporters to use to generate reports");
 
         try {
             CommandLineParser parser = new DefaultParser();
@@ -54,9 +66,12 @@ public class Main {
         dependencies = new HashMap<>();
         outputDir = new File("output");
 
-        // for now the args are a set of reports that we want to run.
-        // If the array is empty, it means to run ALL reports (didn't see that coming, huh?)
-        reportNames = args;
+        String reporters = commands.getOptionValue(COMMAND_REPORTERS);
+        if (reporters != null && reporters.length() > 0) {
+            reportNames = reporters.split(",");
+        } else {
+            reportNames = null;
+        }
     }
 
     public void run() {
@@ -123,7 +138,7 @@ public class Main {
         // we need to analyse the pom file to see if it has any modules, and if so, we download the pom files for
         // these modules and also process them
         // TODO This was deprecated temporarily because we mainly care about released Maven artifacts, not web-based POMs
-        // scanForModules(pomFile);
+         scanForModules(pomFile, p);
 
         // collect all dependencies for this project
         try {
@@ -148,7 +163,10 @@ public class Main {
         }
 
         // now process all modules that we found
-        p.getModules().forEach(module -> processPom(module, pomUrl + "/" + module.getProjectName()));
+        p.getModules().forEach(module -> {
+            String moduleUrl = pomUrl.substring(0, pomUrl.lastIndexOf("/") + 1) + module.getProjectName() + "/pom.xml";
+            processPom(module, moduleUrl);
+        });
     }
 
     private void processArtifact(Project p, MavenArtifactInfo a, List<MavenArtifactInfo> depChain) {
@@ -158,7 +176,7 @@ public class Main {
         String ga = groupId + ":" + artifactId;
         dependencies.computeIfAbsent(ga, s -> new Dependency(groupId, artifactId)).addArtifact(p, a, depChain);
 
-        System.out.println("   Processing artifact " + ga);
+        System.out.println("   Processing artifact " + ga + " (gav: " + a.getCoordinate() + ")");
 
         final List<MavenArtifactInfo> updatedDepChain = updateDependencyChain(depChain, a);
 
@@ -192,24 +210,24 @@ public class Main {
         }
     }
 
-//    private void scanForModules(File pomFile) {
-//        try {
-//            FileInputStream fileIS = new FileInputStream(pomFile);
-//            DocumentBuilderFactory builderFactory = DocumentBuilderFactory.newInstance();
-//            DocumentBuilder builder = builderFactory.newDocumentBuilder();
-//            Document xmlDocument = builder.parse(fileIS);
-//            XPath xPath = XPathFactory.newInstance().newXPath();
-//            String expression = "/project/modules/module";
-//            NodeList nodeList = (NodeList) xPath.compile(expression).evaluate(xmlDocument, XPathConstants.NODESET);
-//            for (int i = 0; i < nodeList.getLength(); i++) {
-//                String name = nodeList.item(i).getTextContent();
-//
-//                // TODO enable this for modules to work
-//                System.out.println("WARNING: Found modules - but ignoring in code for now!");
-//                project.getModules().add(new WebProject(name, project));
-//            }
-//        } catch (Exception e) {
-//            e.printStackTrace();
-//        }
-//    }
+    private void scanForModules(File pomFile, Project project) {
+        try {
+            FileInputStream fileIS = new FileInputStream(pomFile);
+            DocumentBuilderFactory builderFactory = DocumentBuilderFactory.newInstance();
+            DocumentBuilder builder = builderFactory.newDocumentBuilder();
+            Document xmlDocument = builder.parse(fileIS);
+            XPath xPath = XPathFactory.newInstance().newXPath();
+            String expression = "/project/modules/module";
+            NodeList nodeList = (NodeList) xPath.compile(expression).evaluate(xmlDocument, XPathConstants.NODESET);
+            for (int i = 0; i < nodeList.getLength(); i++) {
+                String name = nodeList.item(i).getTextContent();
+
+                // TODO enable this for modules to work
+                System.out.println("WARNING: Found module: " + name);
+                project.getModules().add(new WebProject(name, project));
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
 }

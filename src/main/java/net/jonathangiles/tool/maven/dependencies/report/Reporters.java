@@ -22,6 +22,7 @@ public final class Reporters {
             return reporters.values().stream();
         }
         return Stream.of(names)
+                .map(String::trim)
                 .filter(reporters::containsKey)
                 .map(reporters::get);
     }

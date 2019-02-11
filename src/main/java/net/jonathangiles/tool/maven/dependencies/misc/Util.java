@@ -3,9 +3,6 @@ package net.jonathangiles.tool.maven.dependencies.misc;
 import net.jonathangiles.tool.maven.dependencies.model.Version;
 import org.jboss.shrinkwrap.resolver.api.maven.*;
 import org.jboss.shrinkwrap.resolver.api.maven.coordinate.MavenCoordinate;
-import org.jboss.shrinkwrap.resolver.api.maven.repository.MavenChecksumPolicy;
-import org.jboss.shrinkwrap.resolver.api.maven.repository.MavenRemoteRepositories;
-import org.jboss.shrinkwrap.resolver.api.maven.repository.MavenUpdatePolicy;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -21,14 +18,14 @@ public class Util {
     public static MavenResolverSystemBase<PomEquippedResolveStage, PomlessResolveStage, MavenStrategyStage, MavenFormatStage> getMavenResolver() {
         // TODO externalise configuration of which repos to use
         return Maven.configureResolver()
-                .withRemoteRepo(MavenRemoteRepositories
-                        .createRemoteRepository("spring-plugins", "http://repo.spring.io/plugins-release/", "default")
-                        .setChecksumPolicy(MavenChecksumPolicy.CHECKSUM_POLICY_IGNORE)
-                        .setUpdatePolicy(MavenUpdatePolicy.UPDATE_POLICY_NEVER))
-                .withRemoteRepo(MavenRemoteRepositories
-                        .createRemoteRepository("snapshots", "https://oss.sonatype.org/content/repositories/snapshots/", "default")
-                        .setChecksumPolicy(MavenChecksumPolicy.CHECKSUM_POLICY_IGNORE)
-                        .setUpdatePolicy(MavenUpdatePolicy.UPDATE_POLICY_NEVER))
+//                .withRemoteRepo(MavenRemoteRepositories
+//                        .createRemoteRepository("spring-plugins", "http://repo.spring.io/plugins-release/", "default")
+//                        .setChecksumPolicy(MavenChecksumPolicy.CHECKSUM_POLICY_IGNORE)
+//                        .setUpdatePolicy(MavenUpdatePolicy.UPDATE_POLICY_NEVER))
+//                .withRemoteRepo(MavenRemoteRepositories
+//                        .createRemoteRepository("snapshots", "https://oss.sonatype.org/content/repositories/snapshots/", "default")
+//                        .setChecksumPolicy(MavenChecksumPolicy.CHECKSUM_POLICY_IGNORE)
+//                        .setUpdatePolicy(MavenUpdatePolicy.UPDATE_POLICY_NEVER))
                 .withMavenCentralRepo(true);
     }
 

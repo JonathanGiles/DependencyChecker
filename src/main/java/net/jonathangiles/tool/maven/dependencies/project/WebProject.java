@@ -10,7 +10,7 @@ public class WebProject implements Project {
 
     private List<String> pomUrls;
 
-    private transient WebProject parent;
+    private transient Project parent;
     private transient List<WebProject> modules;
 
     private WebProject() {
@@ -25,31 +25,36 @@ public class WebProject implements Project {
         this.pomUrls.addAll(Arrays.asList(poms));
     }
 
-//    public WebProject(String projectName, WebProject parent) {
-//        this();
-//        this.projectName = projectName;
-//        this.parent = parent;
-//    }
+    public WebProject(String projectName, Project parent) {
+        this();
+        this.projectName = projectName;
+        this.parent = parent;
+    }
 
     public String getProjectName() {
         return projectName;
     }
 
+    @Override
+    public Project getParent() {
+        return parent;
+    }
+
     public String getFullProjectName() {
         StringBuilder sb = new StringBuilder();
-        Stack<WebProject> stack = new Stack<>();
+        Stack<Project> stack = new Stack<>();
         stack.push(this);
 
-        WebProject p = this;
-        while (p.parent != null) {
-            stack.push(p.parent);
-            p = p.parent;
+        Project p = this;
+        while (p.getParent() != null) {
+            stack.push(p.getParent());
+            p = p.getParent();
         }
 
         // unwind stack
         while (!stack.empty()) {
             p = stack.pop();
-            sb.append(p.projectName);
+            sb.append(p.getProjectName());
 
             if (!stack.isEmpty()) {
                 sb.append("/");
