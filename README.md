@@ -47,7 +47,7 @@ format is of one of the following three forms:
 ]
 ```
 
-** Downloading POM files from other locations:**
+**Downloading POM files from other locations:**
 
 ```json
 [
