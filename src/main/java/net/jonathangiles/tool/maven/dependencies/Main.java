@@ -8,9 +8,9 @@ import net.jonathangiles.tool.maven.dependencies.project.Project;
 import net.jonathangiles.tool.maven.dependencies.project.WebProject;
 import net.jonathangiles.tool.maven.dependencies.report.*;
 import org.apache.commons.cli.*;
-import org.jboss.shrinkwrap.resolver.api.maven.MavenArtifactInfo;
-import org.jboss.shrinkwrap.resolver.api.maven.MavenResolvedArtifact;
-import org.jboss.shrinkwrap.resolver.api.maven.ScopeType;
+import org.jboss.shrinkwrap.resolver.api.maven.*;
+import org.jboss.shrinkwrap.resolver.api.maven.coordinate.MavenDependency;
+import org.jboss.shrinkwrap.resolver.impl.maven.MavenWorkingSessionContainer;
 import org.w3c.dom.Document;
 import org.w3c.dom.NodeList;
 
@@ -35,6 +35,9 @@ public class Main {
 
     // maps from a Maven GA to a Dependency instance, containing all dependencies on this GA
     private final Map<String, Dependency> dependencies;
+
+    // maps from a Maven GA to a Maven Coordinate
+    private final Map<String, MavenDependency> dependencyManagement;
 
     private CommandLine commands;
 
@@ -64,6 +67,7 @@ public class Main {
         System.setProperty("os.detected.classifier", "linux-x86_64");
 
         dependencies = new HashMap<>();
+        dependencyManagement = new HashMap<>();
         outputDir = new File("output");
 
         String reporters = commands.getOptionValue(COMMAND_REPORTERS);
@@ -100,7 +104,7 @@ public class Main {
         List<Project> projects = loadProjects(inputFile);
         projects.stream()
                 .peek(project -> System.out.println("Processing project " + project.getProjectName()))
-                .forEach(project -> project.getPomUrls().forEach(pom -> processPom(project, pom)));
+                .forEach(project -> project.getPomUrls().forEach(pom -> processProjectPom(project, pom)));
 
         // analyse results
         final List<Dependency> problems = dependencies.values().stream()
@@ -127,8 +131,16 @@ public class Main {
         }
     }
 
-    private void processPom(Project p, String pomUrl) {
-        System.out.println(" - Processing pom " + pomUrl);
+    private void processProjectPom(Project p, String pomUrl) {
+        System.out.println(" - Processing project pom " + pomUrl);
+        downloadPom(p, pomUrl).ifPresent(pomFile -> {
+            scanManagedDependencies(pomFile);
+            processPom(p, pomUrl, pomFile);
+        });
+    }
+
+    private void processModulePom(Project p, String pomUrl) {
+        System.out.println(" - Processing module pom " + pomUrl);
         downloadPom(p, pomUrl).ifPresent(pomFile -> processPom(p, pomUrl, pomFile));
     }
 
@@ -165,7 +177,7 @@ public class Main {
         // now process all modules that we found
         p.getModules().forEach(module -> {
             String moduleUrl = pomUrl.substring(0, pomUrl.lastIndexOf("/") + 1) + module.getProjectName() + "/pom.xml";
-            processPom(module, moduleUrl);
+            processModulePom(module, moduleUrl);
         });
     }
 
@@ -228,6 +240,17 @@ public class Main {
             }
         } catch (Exception e) {
             e.printStackTrace();
+        }
+    }
+
+    private void scanManagedDependencies(File pomFile) {
+        MavenResolveStageBase resolver = getMavenResolver().loadPomFromFile(pomFile);
+        MavenWorkingSession session = ((MavenWorkingSessionContainer) resolver).getMavenWorkingSession();
+        for (MavenDependency mavenDep : session.getDependencyManagement()) {
+            String groupId = mavenDep.getGroupId();
+            String artifactId = mavenDep.getArtifactId();
+            String ga = groupId + ":" + artifactId;
+            dependencyManagement.putIfAbsent(ga, mavenDep);
         }
     }
 }
