@@ -2,6 +2,7 @@ package net.jonathangiles.tool.maven.dependencies.report;
 
 import net.jonathangiles.tool.maven.dependencies.model.Dependency;
 import net.jonathangiles.tool.maven.dependencies.model.DependencyChain;
+import net.jonathangiles.tool.maven.dependencies.model.DependencyManagement;
 import net.jonathangiles.tool.maven.dependencies.model.Version;
 import net.jonathangiles.tool.maven.dependencies.project.Project;
 
@@ -15,6 +16,7 @@ import static net.jonathangiles.tool.maven.dependencies.misc.Util.*;
 
 public class HTMLReport implements Reporter {
     private final StringBuilder sb;
+    private boolean writeDependenciesHeader = true;
 
     public HTMLReport() {
         this.sb = new StringBuilder();
@@ -26,11 +28,12 @@ public class HTMLReport implements Reporter {
     }
 
     @Override
-    public void report(List<Project> projects, List<Dependency> problems, File outDir, String outFileName) {
+    public void report(List<Project> projects, List<Dependency> problems, Collection<DependencyManagement> dependencyManagement, File outDir, String outFileName) {
         out("<!DOCTYPE html>");
         out("<html>");
         out("  <head>");
         out("    <title>Dependency Issues Report</title>");
+        out("    <meta charset=\"UTF-8\"/>");
         out("    <style>");
 
         // write out CSS inline
@@ -48,18 +51,35 @@ public class HTMLReport implements Reporter {
 
         // Summary table
         out("      <h1>Dependency Issues Report</h1>");
-        out("      <p>This report scanned the Maven releases listed in the first table below, and reports on occasions where there are conflicting dependency versions.<br/>" +
+        out("      <p>This report scanned the <a href=\"#releases\">Maven releases</a> listed in the first table below, and reports on occasions where there are conflicting <a href=\"#dependencies\">dependency versions</a>.<br/>" +
+                (dependencyManagement.isEmpty() ? "" : "<a href=\"#dependencyManagement\">DependencyManagement versions</a> have also been scanned and compared against the declared dependency versions in each release's libraries.<br/>") +
                 "It is important to ensure the libraries analysed in the first table are correctly versioned.<br/>" +
                 "Hover over dashed lines to see the dependency chain, if there is not a direct relationship between the dependency and the project.</p>");
 
         // summary of the projects we scanned
+        out("    <a name=\"releases\"/>");
         printProjects(projects);
 
+        out("    <br/>");
+        out("    <hr/>");
+        out("    <br/>");
+        out("    <br/>");
+
         // results
+        out("    <a name=\"dependencies\"/>");
         problems.stream()
                 .sorted(Comparator.comparing(Dependency::getGA))
                 .sorted(Comparator.comparing(Dependency::isProblemDependency).reversed())
                 .forEach(this::process);
+
+        if (!dependencyManagement.isEmpty()) {
+            out("    <br/>");
+            out("    <hr/>");
+            out("    <br/>");
+            out("    <br/>");
+            out("    <a name=\"dependencyManagement\"/>");
+            printDependencyManagement(dependencyManagement);
+        }
 
         out("      <small>Report generated using <a href=\"https://github.com/JonathanGiles/DependencyChecker\">DependencyChecker</a>, developed by Jonathan Giles</small>");
         out("    </center>");
@@ -101,8 +121,13 @@ public class HTMLReport implements Reporter {
         Version latestReleasedVersion = getLatestVersionInMavenCentral(dependency.getGA(), false);
         String headerClass = dependency.isProblemDependency() ? "problem" : "";
 
+        out("    <a name=\"dep_" + getAnchor(dependency.getGA()) + "\"/>");
         out("    <table>");
         out("      <thead>");
+        if (writeDependenciesHeader) {
+            out("        <tr><th colspan=\"2\" class=\"" + headerClass + "\"><strong>Dependencies Discovered in Libraries</strong></th></tr>");
+            writeDependenciesHeader = false;
+        }
         out("        <tr><th colspan=\"2\" class=\"" + headerClass + "\"><strong>Dependency:</strong> " + dependency.getGA() +
                              "<br/>Latest Released Version: " + latestReleasedVersion + "</th></tr>");
         out("      </thead>");
@@ -203,7 +228,68 @@ public class HTMLReport implements Reporter {
         out("    </table>");
         out("    <br/>");
     }
-    
+
+    private String getAnchor(String ga) {
+        return ga.replace('.', '_').replace(":", "__");
+    }
+
+    private void printDependencyManagement(Collection<DependencyManagement> dependencyManagement) {
+        out("    <table class=\"condensed\">");
+        out("      <thead>");
+        out("        <tr><th colspan=\"3\"><strong>DependencyManagement Versions in Project</strong></th></tr>");
+        out("        <tr><th>Dependency</th><th>Managed Version</th><th>Dependency State</th></tr>");
+        out("      </thead>");
+        out("      <tbody>");
+
+        Collection<DependencyManagement> unmanagedDeps = dependencyManagement.stream()
+                .sorted(Comparator.comparing(DependencyManagement::getGA))
+                .map(d -> {
+                    if (d.getState() != DependencyManagement.State.UNMANAGED) {
+                        out("      <tr>");
+                        out("        <td><a href=\"#dep_" + getAnchor(d.getGA()) + "\">" + d.getGA() + "</a></td>");
+                        out("        <td>" + d.getVersion() + "</td>");
+                        out("        <td>" + getEmoji(d.getState()) + " " + d.getState().toString() + "</td>");
+                        out("      </tr>");
+                        return null;
+                    } else {
+                        return d;
+                    }
+                })
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+        out("      </tbody>");
+        out("    </table>");
+        out("    <br/>");
+
+        if (!unmanagedDeps.isEmpty()) {
+            out("    <table class=\"condensed\">");
+            out("      <thead>");
+            out("        <tr><th colspan=\"2\" class=\"problem\"><strong>Dependencies Missing from DependencyManagement</strong></th></tr>");
+            out("        <tr><th class=\"problem\">Dependency</th><th class=\"problem\">Dependency State</th></tr>");
+            out("      </thead>");
+            out("      <tbody>");
+            for (DependencyManagement d : unmanagedDeps) {
+                out("      <tr>");
+                out("        <td><a href=\"#dep_" + getAnchor(d.getGA()) + "\">" + d.getGA() + "</a></td>");
+                out("        <td>" + getEmoji(d.getState()) + " " + d.getState().toString() + "</td>");
+                out("      </tr>");
+            }
+            out("      </tbody>");
+            out("    </table>");
+            out("    <br/>");
+        }
+    }
+
+    private String getEmoji(DependencyManagement.State state) {
+        if (state == DependencyManagement.State.CONSISTENT) {
+            return "✅";
+        } else if (state == DependencyManagement.State.UNUSED) {
+            return "⚠️";
+        } else {
+            return "❌";
+        }
+    }
+
     private void out(String s) {
         sb.append(s);
         sb.append("\r\n");

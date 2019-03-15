@@ -4,6 +4,8 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 import net.jonathangiles.tool.maven.dependencies.gson.DeserializerForProject;
 import net.jonathangiles.tool.maven.dependencies.model.Dependency;
+import net.jonathangiles.tool.maven.dependencies.model.DependencyManagement;
+import net.jonathangiles.tool.maven.dependencies.model.Version;
 import net.jonathangiles.tool.maven.dependencies.project.Project;
 import net.jonathangiles.tool.maven.dependencies.project.WebProject;
 import net.jonathangiles.tool.maven.dependencies.report.*;
@@ -31,13 +33,14 @@ import static net.jonathangiles.tool.maven.dependencies.misc.Util.*;
 public class Main {
 
     private static final String COMMAND_SHOW_ALL = "showall";
+    private static final String COMMAND_DEPENDENCY_MANAGEMENT = "dependencymanagement";
     private static final String COMMAND_REPORTERS = "reporters";
 
     // maps from a Maven GA to a Dependency instance, containing all dependencies on this GA
     private final Map<String, Dependency> dependencies;
 
     // maps from a Maven GA to a Maven Coordinate
-    private final Map<String, MavenDependency> dependencyManagement;
+    private final Map<String, DependencyManagement> dependencyManagement;
 
     private CommandLine commands;
 
@@ -53,6 +56,9 @@ public class Main {
 
         // Enabled with the -showAll flag
         options.addOption(COMMAND_SHOW_ALL, false, "If specified, report all dependencies. If false, only report dependency conflicts");
+
+        // Enabled with the -dependencyManagement flag
+        options.addOption(COMMAND_DEPENDENCY_MANAGEMENT, false, "If specified, include dependency management information in report.");
 
         // A string, e.g. '-reporters html,json,plain-text'
         options.addOption(COMMAND_REPORTERS, "A comma-separated string of the reporters to use to generate reports");
@@ -111,12 +117,38 @@ public class Main {
                 .filter(dependency -> commands.hasOption(COMMAND_SHOW_ALL) || dependency.isProblemDependency())
                 .collect(Collectors.toList());
 
+        dependencyManagement.forEach(this::updateManagementState);
+
         // output reports
         // strip .json file extension from input file name
         String outputFileName = inputFile.getName().substring(0, inputFile.getName().length() - 5);
 
         Reporters.getReporters(reportNames)
-                .forEach(reporter -> reporter.report(projects, problems, outputDir, outputFileName));
+                .forEach(reporter -> reporter.report(projects, problems, dependencyManagement.values(), outputDir, outputFileName));
+    }
+
+    private void updateManagementState(String ga, DependencyManagement managedDep) {
+        if (managedDep.getState() != DependencyManagement.State.UNKNOWN) {
+            return;
+        }
+
+        Dependency dep = dependencies.get(ga);
+        if (dep == null) {
+            managedDep.setState(DependencyManagement.State.UNUSED);
+            return;
+        }
+
+        if (dep.isProblemDependency()) {
+            managedDep.setState(DependencyManagement.State.INCONSISTENT);
+            return;
+        }
+
+        Version ver = dep.getVersions().iterator().next();
+        if (ver.getVersionString().equals(managedDep.getVersion())) {
+            managedDep.setState(DependencyManagement.State.CONSISTENT);
+        } else {
+            managedDep.setState(DependencyManagement.State.INCONSISTENT);
+        }
     }
 
     private List<Project> loadProjects(File inputFile) {
@@ -134,8 +166,10 @@ public class Main {
     private void processProjectPom(Project p, String pomUrl) {
         System.out.println(" - Processing project pom " + pomUrl);
         downloadPom(p, pomUrl).ifPresent(pomFile -> {
-            scanManagedDependencies(pomFile);
             processPom(p, pomUrl, pomFile);
+            if (commands.hasOption(COMMAND_DEPENDENCY_MANAGEMENT)) {
+                scanManagedDependencies(pomFile);
+            }
         });
     }
 
@@ -250,7 +284,12 @@ public class Main {
             String groupId = mavenDep.getGroupId();
             String artifactId = mavenDep.getArtifactId();
             String ga = groupId + ":" + artifactId;
-            dependencyManagement.putIfAbsent(ga, mavenDep);
+            dependencyManagement.putIfAbsent(ga, DependencyManagement.fromMaven(mavenDep));
+        }
+
+        for (Map.Entry<String, Dependency> entry : dependencies.entrySet()) {
+            // Record all dependencies that were discovered in projects that aren't in DependencyManagement
+            dependencyManagement.putIfAbsent(entry.getKey(), DependencyManagement.fromUnmanagedDependency(entry.getValue()));
         }
     }
 }

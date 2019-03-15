@@ -2,15 +2,14 @@ package net.jonathangiles.tool.maven.dependencies.report;
 
 import net.jonathangiles.tool.maven.dependencies.model.Dependency;
 import net.jonathangiles.tool.maven.dependencies.model.DependencyChain;
+import net.jonathangiles.tool.maven.dependencies.model.DependencyManagement;
 import net.jonathangiles.tool.maven.dependencies.project.Project;
 
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class PlainTextReport implements Reporter {
@@ -26,7 +25,7 @@ public class PlainTextReport implements Reporter {
     }
 
     @Override
-    public void report(List<Project> projects, List<Dependency> problems, File outDir, String outFileName) {
+    public void report(List<Project> projects, List<Dependency> problems, Collection<DependencyManagement> dependencyManagement, File outDir, String outFileName) {
         out("Dependency Issues Report:");
         out("=====================================================");
         problems.stream()
@@ -46,6 +45,35 @@ public class PlainTextReport implements Reporter {
                                     .forEach(depVersion -> out("       - Dependency chain: " + depVersion.getDependencyChain().stream().collect(Collectors.joining(" -> "))));
                             });
                 }));
+
+        if (!dependencyManagement.isEmpty()) {
+            out("\r\n");
+            out("Dependency Management Report:");
+            out("=====================================================");
+            Collection<DependencyManagement> unmanagedDeps = dependencyManagement.stream()
+                    .sorted(Comparator.comparing(DependencyManagement::getGA))
+                    .map(d -> {
+                        if (d.getState() != DependencyManagement.State.UNMANAGED) {
+                            out("\r\n" + d.getGA() + ":" + d.getVersion());
+                            out(d.getState().toString());
+                            return null;
+                        } else {
+                            return d;
+                        }
+                    })
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toList());
+
+            if (!unmanagedDeps.isEmpty()) {
+                out("\r\n");
+                out("Unmanaged Dependencies:");
+                out("=====================================================");
+                for (DependencyManagement d : unmanagedDeps) {
+                    out("\r\n" + d.getGA());
+                    out(d.getState().toString());
+                }
+            }
+        }
 
         // write out to the output file
         File outFile = new File(outDir, outFileName + ".txt");
