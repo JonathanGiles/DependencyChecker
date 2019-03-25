@@ -6,6 +6,8 @@ import org.jboss.shrinkwrap.resolver.api.maven.MavenArtifactInfo;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static net.jonathangiles.tool.maven.dependencies.misc.Util.getLatestVersionInMavenCentral;
+
 /**
  * This class contains a groupId and artifactId (from Maven) representing a single dependency from one of the
  * projects being scanned (either directly or transitively).
@@ -20,7 +22,7 @@ public class Dependency {
     public Dependency(String groupId, String artifactId) {
         this.groupId = groupId;
         this.artifactId = artifactId;
-        this.dependenciesOnVersion = new HashMap<>();
+        this.dependenciesOnVersion = new TreeMap<>(Comparator.reverseOrder());
     }
 
     public void addArtifact(Project project, MavenArtifactInfo artifact, List<MavenArtifactInfo> depChain) {
@@ -44,12 +46,17 @@ public class Dependency {
         return artifactId;
     }
 
-    public Collection<Version> getVersions() {
+    public Set<Version> getVersions() {
         return dependenciesOnVersion.keySet();
     }
 
     public Map<Project, List<DependencyChain>> getDependenciesOnVersion(Version version) {
         return dependenciesOnVersion.get(version);
+    }
+
+    public boolean anyDependenciesOnLatestRelease() {
+        final Version latestReleasedVersionD2 = getLatestVersionInMavenCentral(getGA(), false);
+        return dependenciesOnVersion.containsKey(latestReleasedVersionD2);
     }
 
     /**

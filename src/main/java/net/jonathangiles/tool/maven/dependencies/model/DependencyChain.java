@@ -22,7 +22,7 @@ public class DependencyChain {
     public int getDependencyChainSize() { return dependencyChain.size(); }
 
     public boolean hasDependencyChain() {
-        return dependencyChain.size() > 1;
+        return !dependencyChain.isEmpty();
     }
 
     public List<String> getDependencyChain() {

@@ -22,6 +22,12 @@ tr:nth-child(even) {
 th.problem {
     background-color: #af2e2e;
 }
+th.warning {
+    background-color: darkorange;
+}
+th.success {
+    background-color: forestgreen;
+}
 th {
     background-color: #2E7CAF;
     color: white;
@@ -64,7 +70,7 @@ td.version {
     visibility: visible;
 }
 
-.success {
+.success-chain {
     color: #00CC00;
 }
 .fail {

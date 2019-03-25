@@ -69,6 +69,7 @@ public class HTMLReport implements Reporter {
         out("    <a name=\"dependencies\"/>");
         problems.stream()
                 .sorted(Comparator.comparing(Dependency::getGA))
+                .sorted(Comparator.comparing(Dependency::anyDependenciesOnLatestRelease))
                 .sorted(Comparator.comparing(Dependency::isProblemDependency).reversed())
                 .forEach(this::process);
 
@@ -81,7 +82,7 @@ public class HTMLReport implements Reporter {
             printDependencyManagement(dependencyManagement);
         }
 
-        out("      <small>Report generated using <a href=\"https://github.com/JonathanGiles/DependencyChecker\">DependencyChecker</a>, developed by Jonathan Giles</small>");
+        out("      <small>Report generated using <a href=\"https://github.com/JonathanGiles/DependencyChecker\">DependencyChecker</a>, developed by <a href=\"http://jonathangiles.net\">Jonathan Giles</a></small>");
         out("    </center>");
         out("  </body>");
         out("</html>");
@@ -118,8 +119,12 @@ public class HTMLReport implements Reporter {
     }
 
     private void process(Dependency dependency) {
-        Version latestReleasedVersion = getLatestVersionInMavenCentral(dependency.getGA(), false);
-        String headerClass = dependency.isProblemDependency() ? "problem" : "";
+        final Version latestReleasedVersion = getLatestVersionInMavenCentral(dependency.getGA(), false);
+        final Set<Version> versions = dependency.getVersions();
+        final boolean noDependenciesOnLatestVersion = !versions.iterator().next().equals(latestReleasedVersion);
+        final String headerClass = dependency.isProblemDependency()
+                        ? "problem" : noDependenciesOnLatestVersion
+                        ? "warning" : "success";
 
         out("    <a name=\"dep_" + getAnchor(dependency.getGA()) + "\"/>");
         out("    <table>");
@@ -133,12 +138,9 @@ public class HTMLReport implements Reporter {
         out("      </thead>");
         out("      <tbody>");
 
-        List<Version> versions = dependency.getVersions()
-                .stream()
-                .sorted(Comparator.reverseOrder())
-                .collect(Collectors.toList());
 
-        if (!versions.get(0).equals(latestReleasedVersion)) {
+
+        if (noDependenciesOnLatestVersion) {
             out("      <tr>");
             out("        <td class=\"version\">" + latestReleasedVersion + "</td>");
             out("        <td><i>&lt;No dependencies on latest version&gt;</i></td>");
@@ -193,7 +195,7 @@ public class HTMLReport implements Reporter {
                                             switch (diff) {
                                                 case 0:
                                                 case 1:
-                                                    chainString.append("<font class=\"success\">");
+                                                    chainString.append("<font class=\"success-chain\">");
                                                     break;
                                                 case -1:
                                                     chainString.append("<font class=\"fail\">");
