@@ -4,7 +4,7 @@ This tool helps to determine when Maven projects bring in  dependencies that are
 words, if two projects each have a dependency on the same library, but with different versions, there is likely to be
 a conflict that arises because of this, if users were to depend on both Maven projects and their transitive dependencies.
 
-An example report for the [Azure Java SDKs can be viewed online](https://azurejavadocs.z5.web.core.windows.net/dependency-conflicts.html).
+An example report for the [Azure Java SDKs can be viewed online](https://azuresdkartifacts.blob.core.windows.net/azure-sdk-for-java/staging/dependencies.html).
 
 ## Getting Started
 
