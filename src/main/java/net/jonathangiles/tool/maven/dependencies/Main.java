@@ -268,8 +268,7 @@ public class Main {
             for (int i = 0; i < nodeList.getLength(); i++) {
                 String name = nodeList.item(i).getTextContent();
 
-                // TODO enable this for modules to work
-                System.out.println("WARNING: Found module: " + name);
+                System.out.println("Found module: " + name);
                 project.getModules().add(new WebProject(name, project));
             }
         } catch (Exception e) {

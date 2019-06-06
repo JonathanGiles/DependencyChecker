@@ -9,6 +9,8 @@ import net.jonathangiles.tool.maven.dependencies.project.Project;
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -82,7 +84,7 @@ public class HTMLReport implements Reporter {
             printDependencyManagement(dependencyManagement);
         }
 
-        out("      <small>Report generated using <a href=\"https://github.com/JonathanGiles/DependencyChecker\">DependencyChecker</a>, developed by <a href=\"http://jonathangiles.net\">Jonathan Giles</a></small>");
+        out("      <small>Report generated at " + DateTimeFormatter.ofPattern("HH:mm:ss 'on' yyyy-MM-dd").format(LocalDateTime.now()) + "<br/>with <a href=\"https://github.com/JonathanGiles/DependencyChecker\">DependencyChecker</a>, developed by <a href=\"http://jonathangiles.net\">Jonathan Giles</a></small>");
         out("    </center>");
         out("  </body>");
         out("</html>");
