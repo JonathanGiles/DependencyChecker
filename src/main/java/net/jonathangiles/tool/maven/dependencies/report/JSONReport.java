@@ -21,14 +21,14 @@ public class JSONReport implements Reporter {
 
     @Override
     public void report(List<Project> projects, List<Dependency> problems, Collection<DependencyManagement> dependencyManagement, File outDir, String outFileName) {
-        try {
-            File outFile = new File(outDir, outFileName + ".json");
-
+        File outFile = new File(outDir, outFileName + ".json");
+        try (FileWriter writer = new FileWriter(outFile))
+        {
             new GsonBuilder()
                     .setPrettyPrinting()
                     .registerTypeAdapter(DependencyChain.class, new SerializerForDependencyChain())
                     .create()
-                    .toJson(problems, new FileWriter(outFile));
+                    .toJson(problems, writer);
 
             System.out.println("JSON report written to " + outFile);
         } catch (Exception e) {
