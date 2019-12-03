@@ -16,17 +16,7 @@ public class Util {
     private Util() {  }
 
     public static MavenResolverSystemBase<PomEquippedResolveStage, PomlessResolveStage, MavenStrategyStage, MavenFormatStage> getMavenResolver() {
-        // TODO externalise configuration of which repos to use
-        return Maven.configureResolver()
-//                .withRemoteRepo(MavenRemoteRepositories
-//                        .createRemoteRepository("spring-plugins", "http://repo.spring.io/plugins-release/", "default")
-//                        .setChecksumPolicy(MavenChecksumPolicy.CHECKSUM_POLICY_IGNORE)
-//                        .setUpdatePolicy(MavenUpdatePolicy.UPDATE_POLICY_NEVER))
-//                .withRemoteRepo(MavenRemoteRepositories
-//                        .createRemoteRepository("snapshots", "https://oss.sonatype.org/content/repositories/snapshots/", "default")
-//                        .setChecksumPolicy(MavenChecksumPolicy.CHECKSUM_POLICY_IGNORE)
-//                        .setUpdatePolicy(MavenUpdatePolicy.UPDATE_POLICY_NEVER))
-                .withMavenCentralRepo(true);
+        return Maven.resolver();
     }
 
     public static Version getLatestVersionInMavenCentral(String groupId, String artifactId, boolean acceptQualifiers) {
