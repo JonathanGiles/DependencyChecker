@@ -31,6 +31,8 @@ public class HTMLReport implements Reporter {
 
     @Override
     public void report(List<Project> projects, List<Dependency> problems, Collection<DependencyManagement> dependencyManagement, File outDir, String outFileName) {
+        System.out.println("Starting to write HTML report");
+
         out("<!DOCTYPE html>");
         out("<html>");
         out("  <head>");
@@ -69,7 +71,19 @@ public class HTMLReport implements Reporter {
 
         // results
         out("    <a name=\"dependencies\"/>");
+
+        // print all runtime-scope dependencies
+        out("    <h3>Compile and Runtime Scoped Dependencies</h3>");
         problems.stream()
+                .filter(Dependency::hasCompileOrRuntimeScope)
+                .sorted(Comparator.comparing(Dependency::getGA))
+                .sorted(Comparator.comparing(Dependency::anyDependenciesOnLatestRelease))
+                .sorted(Comparator.comparing(Dependency::isProblemDependency).reversed())
+                .forEach(this::process);
+
+        out("    <h3>Other Scoped Dependencies</h3>");
+        problems.stream()
+                .filter(dep -> !dep.hasCompileOrRuntimeScope())
                 .sorted(Comparator.comparing(Dependency::getGA))
                 .sorted(Comparator.comparing(Dependency::anyDependenciesOnLatestRelease))
                 .sorted(Comparator.comparing(Dependency::isProblemDependency).reversed())

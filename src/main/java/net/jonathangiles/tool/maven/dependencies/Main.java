@@ -227,7 +227,8 @@ public class Main {
         String groupId = a.getCoordinate().getGroupId();
         String artifactId = a.getCoordinate().getArtifactId();
         String ga = groupId + ":" + artifactId;
-        dependencies.computeIfAbsent(ga, s -> new Dependency(groupId, artifactId)).addArtifact(p, a, depChain);
+
+        dependencies.computeIfAbsent(ga, s -> new Dependency(a)).addArtifact(p, a, depChain);
 
         System.out.println("   Processing artifact " + ga + " (gav: " + a.getCoordinate() + ")");
 
