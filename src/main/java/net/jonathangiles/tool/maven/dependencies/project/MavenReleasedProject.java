@@ -6,6 +6,7 @@ import org.jboss.shrinkwrap.resolver.api.maven.Maven;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 public class MavenReleasedProject implements Project {
 
@@ -75,5 +76,20 @@ public class MavenReleasedProject implements Project {
     @Override
     public String toString() {
         return getFullProjectName();
+    }
+
+    @Override
+    public boolean equals(final Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        final MavenReleasedProject that = (MavenReleasedProject) o;
+        return Objects.equals(groupId, that.groupId) &&
+                       Objects.equals(artifactId, that.artifactId) &&
+                       Objects.equals(version, that.version);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(groupId, artifactId, version);
     }
 }

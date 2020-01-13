@@ -24,10 +24,20 @@ public class DeserializerForProject implements JsonDeserializer<Project> {
                     jsonObject.has("version") ? jsonObject.get("version").getAsString() : null
                 );
             } else if (jsonObject.has("projectName")) {
-                Project project = new WebProject(jsonObject.get("projectName").getAsString());
-                JsonArray poms = jsonObject.getAsJsonArray("pomUrls");
-                for (int i = 0; i < poms.size(); i++) {
-                    project.getPomUrls().add(poms.get(i).getAsString());
+                // we special-case for BOMs
+                String projectName = jsonObject.get("projectName").getAsString();
+                String bom = jsonObject.has("bom") ? jsonObject.getAsJsonPrimitive("bom").getAsString() : null;
+
+                Project project;
+                if (bom != null && !bom.isEmpty()) {
+                    project = new WebProject(projectName, true);
+                    project.getPomUrls().add(bom);
+                } else {
+                    project = new WebProject(projectName, false);
+                    JsonArray poms = jsonObject.getAsJsonArray("pomUrls");
+                    for (int i = 0; i < poms.size(); i++) {
+                        project.getPomUrls().add(poms.get(i).getAsString());
+                    }
                 }
                 return project;
             }

@@ -13,4 +13,9 @@ public interface Project {
     Project getParent();
 
     List<WebProject> getModules();
+
+    default boolean isBom() {
+        return false;
+    }
+
 }

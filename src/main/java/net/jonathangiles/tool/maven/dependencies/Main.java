@@ -6,6 +6,7 @@ import net.jonathangiles.tool.maven.dependencies.gson.DeserializerForProject;
 import net.jonathangiles.tool.maven.dependencies.model.Dependency;
 import net.jonathangiles.tool.maven.dependencies.model.DependencyManagement;
 import net.jonathangiles.tool.maven.dependencies.model.Version;
+import net.jonathangiles.tool.maven.dependencies.project.MavenReleasedProject;
 import net.jonathangiles.tool.maven.dependencies.project.Project;
 import net.jonathangiles.tool.maven.dependencies.project.WebProject;
 import net.jonathangiles.tool.maven.dependencies.report.*;
@@ -25,6 +26,8 @@ import java.io.*;
 import java.net.URL;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -34,6 +37,7 @@ public class Main {
 
     private static final String COMMAND_SHOW_ALL = "showall";
     private static final String COMMAND_DEPENDENCY_MANAGEMENT = "dependencymanagement";
+    private static final String COMMAND_ANALYSE_BOM = "analysebom";
     private static final String COMMAND_REPORTERS = "reporters";
 
     // maps from a Maven GA to a Dependency instance, containing all dependencies on this GA
@@ -59,6 +63,9 @@ public class Main {
 
         // Enabled with the -dependencyManagement flag
         options.addOption(COMMAND_DEPENDENCY_MANAGEMENT, false, "If specified, include dependency management information in report.");
+
+        // Enabled with the -analyseBom flag
+        options.addOption(COMMAND_ANALYSE_BOM, false, "If specified, the dependencies listed in the dependencyManagement section are analysed transitively.");
 
         // A string, e.g. '-reporters html,json,plain-text'
         options.addOption(COMMAND_REPORTERS, "A comma-separated string of the reporters to use to generate reports");
@@ -164,33 +171,33 @@ public class Main {
     }
 
     private void processProjectPom(Project p, String pomUrl) {
+        final MavenResolverSystemBase<?,?,?,?> mavenResolver = getMavenResolver();
+
         System.out.println(" - Processing project pom " + pomUrl);
         downloadPom(p, pomUrl).ifPresent(pomFile -> {
-            processPom(p, pomUrl, pomFile);
-            if (commands.hasOption(COMMAND_DEPENDENCY_MANAGEMENT)) {
-                scanManagedDependencies(pomFile);
-            }
+            scanManagedDependencies(p, pomFile, mavenResolver);
+            processPom(p, pomUrl, pomFile, mavenResolver);
         });
     }
 
-    private void processModulePom(Project p, String pomUrl) {
+    private void processModulePom(Project p, String pomUrl, MavenResolverSystemBase<?,?,?,?> mavenResolver) {
         System.out.println(" - Processing module pom " + pomUrl);
-        downloadPom(p, pomUrl).ifPresent(pomFile -> processPom(p, pomUrl, pomFile));
+        downloadPom(p, pomUrl).ifPresent(pomFile -> processPom(p, pomUrl, pomFile, mavenResolver));
     }
 
-    private void processPom(Project p, String pomUrl, File pomFile) {
+    private void processPom(Project p, String pomUrl, File pomFile, MavenResolverSystemBase<?,?,?,?> mavenResolver) {
         System.out.println("   Processing...");
 
         // we need to analyse the pom file to see if it has any modules, and if so, we download the pom files for
         // these modules and also process them
         // TODO This was deprecated temporarily because we mainly care about released Maven artifacts, not web-based POMs
-         scanForModules(pomFile, p);
+        scanForModules(pomFile, p);
 
         // collect all dependencies for this project
         try {
-            MavenResolvedArtifact[] result = getMavenResolver().loadPomFromFile(pomFile)
+            MavenResolvedArtifact[] result = mavenResolver.loadPomFromFile(pomFile)
+//                    .importDependencies(ScopeType.RUNTIME)
                     .importDependencies(ScopeType.values())
-//                    .importCompileAndRuntimeDependencies()
                     .resolve()
                     .withTransitivity()
                     .asResolvedArtifact();
@@ -211,7 +218,7 @@ public class Main {
         // now process all modules that we found
         p.getModules().forEach(module -> {
             String moduleUrl = pomUrl.substring(0, pomUrl.lastIndexOf("/") + 1) + module.getProjectName() + "/pom.xml";
-            processModulePom(module, moduleUrl);
+            processModulePom(module, moduleUrl, mavenResolver);
         });
     }
 
@@ -228,6 +235,7 @@ public class Main {
 
         // and then add in all dependencies required by the artifact
         Arrays.stream(a.getDependencies())
+//              .filter(artifact -> !artifact.getScope().equals(ScopeType.TEST))
               .forEach(dependency -> processArtifact(p, dependency, updatedDepChain));
     }
 
@@ -238,20 +246,28 @@ public class Main {
     }
 
     private Optional<File> downloadPom(Project project, String pomPath) {
-        System.out.print("   Downloading...");
+        final String f = ("temp/" + project.getFullProjectName() + "/pom.xml").replace(":", "-");
+        final File outputFile = new File(f);
+        outputFile.getParentFile().mkdirs();
+
         try {
-            URL url = new URL(pomPath);
-            String f = "temp/" + project.getFullProjectName() + "/pom.xml";
-            f = f.replace(":", "-");
-            File outputFile = new File(f);
-            outputFile.getParentFile().mkdirs();
-            ReadableByteChannel rbc = Channels.newChannel(url.openStream());
-            FileOutputStream fos = new FileOutputStream(outputFile);
-            fos.getChannel().transferFrom(rbc, 0, Long.MAX_VALUE);
-            System.out.println("Success");
+            // test if file is local, or else attempt internet download
+            File file = new File(pomPath);
+            if (file.exists()) {
+                Files.copy(file.toPath(), outputFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            } else {
+                System.out.print("   Downloading...");
+
+                URL url = new URL(pomPath);
+                ReadableByteChannel rbc = Channels.newChannel(url.openStream());
+                FileOutputStream fos = new FileOutputStream(outputFile);
+                fos.getChannel().transferFrom(rbc, 0, Long.MAX_VALUE);
+                System.out.println("Success");
+            }
             return Optional.of(outputFile);
         } catch (Exception e) {
             System.err.println("Failed to download pom file " + pomPath);
+            e.printStackTrace();
             return Optional.empty();
         }
     }
@@ -276,19 +292,36 @@ public class Main {
         }
     }
 
-    private void scanManagedDependencies(File pomFile) {
-        MavenResolveStageBase resolver = getMavenResolver().loadPomFromFile(pomFile);
+    private void scanManagedDependencies(Project project, File pomFile, MavenResolverSystemBase<?,?,?,?> mavenResolver) {
+        MavenResolveStageBase resolver = mavenResolver.loadPomFromFile(pomFile);
         MavenWorkingSession session = ((MavenWorkingSessionContainer) resolver).getMavenWorkingSession();
         for (MavenDependency mavenDep : session.getDependencyManagement()) {
             String groupId = mavenDep.getGroupId();
             String artifactId = mavenDep.getArtifactId();
             String ga = groupId + ":" + artifactId;
-            dependencyManagement.putIfAbsent(ga, DependencyManagement.fromMaven(mavenDep));
+
+            if (commands.hasOption(COMMAND_DEPENDENCY_MANAGEMENT)) {
+                DependencyManagement dep = DependencyManagement.fromMaven(mavenDep);
+                dependencyManagement.putIfAbsent(ga, dep);
+            }
+
+            if (commands.hasOption(COMMAND_ANALYSE_BOM)) {
+                MavenResolvedArtifact[] result = mavenResolver.addDependency(mavenDep).resolve().withTransitivity().asResolvedArtifact();
+                Arrays.stream(result)
+                        .forEach(artifact -> processArtifact(new MavenReleasedProject(groupId, artifactId, mavenDep.getVersion()) {
+                            @Override
+                            public boolean isBom() {
+                                return true;
+                            }
+                        }, artifact, new ArrayList<>()));
+            }
         }
 
-        for (Map.Entry<String, Dependency> entry : dependencies.entrySet()) {
-            // Record all dependencies that were discovered in projects that aren't in DependencyManagement
-            dependencyManagement.putIfAbsent(entry.getKey(), DependencyManagement.fromUnmanagedDependency(entry.getValue()));
+        if (commands.hasOption(COMMAND_DEPENDENCY_MANAGEMENT)) {
+            for (Map.Entry<String, Dependency> entry : dependencies.entrySet()) {
+                // Record all dependencies that were discovered in projects that aren't in DependencyManagement
+                dependencyManagement.putIfAbsent(entry.getKey(), DependencyManagement.fromUnmanagedDependency(entry.getValue()));
+            }
         }
     }
 }

@@ -13,22 +13,24 @@ public class WebProject implements Project {
     private transient Project parent;
     private transient List<WebProject> modules;
 
+    private boolean isBom;
+
     private WebProject() {
         this.pomUrls = new ArrayList<>();
         this.modules = new ArrayList<>();
     }
 
-    public WebProject(String projectName, String... poms) {
+    public WebProject(String projectName, boolean isBom) {
         this();
+        this.isBom = isBom;
         this.projectName = projectName;
-        this.parent = null;
-        this.pomUrls.addAll(Arrays.asList(poms));
     }
 
     public WebProject(String projectName, Project parent) {
         this();
         this.projectName = projectName;
         this.parent = parent;
+        this.isBom = false;
     }
 
     public String getProjectName() {
@@ -70,6 +72,11 @@ public class WebProject implements Project {
 
     public List<WebProject> getModules() {
         return modules;
+    }
+
+    @Override
+    public boolean isBom() {
+        return isBom;
     }
 
     @Override

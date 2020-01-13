@@ -160,6 +160,8 @@ public class HTMLReport implements Reporter {
                     .stream()
                     .sorted(Comparator.comparing(e -> e.getKey().getFullProjectName()))
                     .forEach(e -> {
+                        final boolean isBomProject = e.getKey().isBom();
+
                         Optional<DependencyChain> dependencyChain = e.getValue()
                                 .stream()
                                 .filter(DependencyChain::hasDependencyChain)
@@ -168,57 +170,13 @@ public class HTMLReport implements Reporter {
                                 .findFirst();
 
                         if (dependencyChain.isPresent()) {
-                            DependencyChain depChain = dependencyChain.get();
-                            List<String> chainItems = depChain.getDependencyChain();
-                            if (!chainItems.isEmpty()) {
-                                chainItems.add(0, e.getKey().getFullProjectName());
-                                chainItems.add(dependency.getGA() + ":" + version);
+                            String chainString = buildDependencyChain(e.getKey(), dependency, version, dependencyChain, isBomProject);
 
-                                StringBuilder chainString = new StringBuilder();
+                            String displayName = isBomProject ?
+                                         dependencyChain.get().getDependencyChain().get(0) :
+                                         e.getKey().getFullProjectName();
 
-                                chainString.append("<strong>Dependency Chain</strong><br/>");
-
-                                for (int i = 0; i < chainItems.size(); i++) {
-                                    for (int indent = 1; indent < 4 * i; indent++) {
-                                        chainString.append("&nbsp;");
-                                    }
-
-                                    String gav = chainItems.get(i);
-
-                                    int colonIndex = gav.lastIndexOf(":");
-                                    String ga = colonIndex == -1 ? gav : gav.substring(0, colonIndex);
-                                    Version latestVersion = getLatestVersionInMavenCentral(ga, false);
-
-                                    if (latestVersion != null) {
-                                        Version thisVersion = getVersionFromGAV(gav);
-                                        if (thisVersion != null) {
-                                            int diff = thisVersion.compareTo(latestVersion);
-
-                                            switch (diff) {
-                                                case 0:
-                                                case 1:
-                                                    chainString.append("<font class=\"success-chain\">");
-                                                    break;
-                                                case -1:
-                                                    chainString.append("<font class=\"fail\">");
-                                                    break;
-                                            }
-                                        }
-                                    }
-
-                                    chainString.append("- ");
-                                    chainString.append(gav);
-
-
-                                    if (latestVersion != null) {
-                                        chainString.append(" (Latest version: " + latestVersion + ")</font>");
-                                    }
-
-                                    chainString.append("<br/>");
-                                }
-
-                                out("<div class=\"tooltip\">" + e.getKey().getFullProjectName() + "<span class=\"tooltiptext\">" + chainString.toString() + "</span></div><br/>");
-                            }
+                            out("<div class=\"tooltip\">" +  displayName + "<span class=\"tooltiptext\">" + chainString.toString() + "</span></div><br/>");
                         } else {
                             out(e.getKey().getFullProjectName() + "<br/>");
                         }
@@ -231,6 +189,63 @@ public class HTMLReport implements Reporter {
         out("      </tbody>");
         out("    </table>");
         out("    <br/>");
+    }
+
+    private String buildDependencyChain(Project project, Dependency dependency, Version version, Optional<DependencyChain> dependencyChain, boolean isBomProject) {
+        DependencyChain depChain = dependencyChain.get();
+        List<String> chainItems = depChain.getDependencyChain();
+        if (chainItems.isEmpty()) {
+            return "";
+        }
+
+        if (!isBomProject) {
+            chainItems.add(0, project.getFullProjectName());
+        }
+        chainItems.add(dependency.getGA() + ":" + version);
+
+        StringBuilder chainString = new StringBuilder();
+
+        chainString.append("<strong>Dependency Chain</strong><br/>");
+
+        for (int i = isBomProject ? 1 : 0; i < chainItems.size(); i++) {
+            for (int indent = 1; indent < 4 * i; indent++) {
+                chainString.append("&nbsp;");
+            }
+
+            String gav = chainItems.get(i);
+
+            int colonIndex = gav.lastIndexOf(":");
+            String ga = colonIndex == -1 ? gav : gav.substring(0, colonIndex);
+            Version latestVersion = getLatestVersionInMavenCentral(ga, false);
+
+            if (latestVersion != null) {
+                Version thisVersion = getVersionFromGAV(gav);
+                if (thisVersion != null) {
+                    int diff = thisVersion.compareTo(latestVersion);
+
+                    switch (diff) {
+                        case 0:
+                        case 1:
+                            chainString.append("<font class=\"success-chain\">");
+                            break;
+                        case -1:
+                            chainString.append("<font class=\"fail\">");
+                            break;
+                    }
+                }
+            }
+
+            chainString.append("- ");
+            chainString.append(gav);
+
+            if (latestVersion != null) {
+                chainString.append(" (Latest version: " + latestVersion + ")</font>");
+            }
+
+            chainString.append("<br/>");
+        }
+
+        return chainString.toString();
     }
 
     private String getAnchor(String ga) {
