@@ -16,7 +16,7 @@ public class Util {
     private Util() {  }
 
     public static MavenResolverSystemBase<PomEquippedResolveStage, PomlessResolveStage, MavenStrategyStage, MavenFormatStage> getMavenResolver() {
-        return Maven.resolver();
+        return Maven.configureResolver().withMavenCentralRepo(true);
     }
 
     public static Version getLatestVersionInMavenCentral(String groupId, String artifactId, boolean acceptQualifiers) {

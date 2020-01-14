@@ -12,19 +12,15 @@ public class MavenReleasedProject implements Project {
 
     private final String groupId;
     private final String artifactId;
-    private final Version version;
+    private final String versionStr;
+    private Version version;
 
     private final List<WebProject> modules;
 
-    public MavenReleasedProject(String groupId, String artifactId, String version) {
+    public MavenReleasedProject(String groupId, String artifactId, String versionStr) {
         this.groupId = groupId;
         this.artifactId = artifactId;
-        this.version = version != null ? Version.build(version) : Util.getLatestVersionInMavenCentral(groupId, artifactId, false);
-
-        if (this.version == Version.UNKNOWN) {
-            System.err.println("failure on " + groupId + ":" + artifactId + ":" + version);
-            System.exit(-1);
-        }
+        this.versionStr = versionStr;
 
         this.modules = new ArrayList<>();
     }
@@ -36,7 +32,7 @@ public class MavenReleasedProject implements Project {
 
     @Override
     public String getFullProjectName() {
-        return getProjectName() + ":" + version;
+        return getProjectName() + ":" + versionStr;
     }
 
     @Override
@@ -50,7 +46,7 @@ public class MavenReleasedProject implements Project {
 
         String url;
 
-        if (version.isSnapshot()) {
+        if (getVersion().isSnapshot()) {
             url = "https://oss.sonatype.org/content/repositories/snapshots/";
         } else {
             url = "http://central.maven.org/maven2/";
@@ -60,9 +56,9 @@ public class MavenReleasedProject implements Project {
                 + "/"
                 + artifactId.replace(".", "/")
                 + "/"
-                + version
+                + versionStr
                 + "/"
-                + artifactId + "-" + version + ".pom";
+                + artifactId + "-" + versionStr + ".pom";
         urls.add(url);
 
         return urls;
@@ -85,11 +81,23 @@ public class MavenReleasedProject implements Project {
         final MavenReleasedProject that = (MavenReleasedProject) o;
         return Objects.equals(groupId, that.groupId) &&
                        Objects.equals(artifactId, that.artifactId) &&
-                       Objects.equals(version, that.version);
+                       Objects.equals(versionStr, that.versionStr);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(groupId, artifactId, version);
+        return Objects.hash(groupId, artifactId, versionStr);
+    }
+
+    private Version getVersion() {
+        if (version == null) {
+            this.version = versionStr != null ? Version.build(versionStr) : Util.getLatestVersionInMavenCentral(groupId, artifactId, false);
+
+            if (this.version == Version.UNKNOWN) {
+                System.err.println("failure on " + groupId + ":" + artifactId + ":" + versionStr);
+                System.exit(-1);
+            }
+        }
+        return version;
     }
 }
