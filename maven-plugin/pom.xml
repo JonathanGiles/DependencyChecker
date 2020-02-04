@@ -7,7 +7,7 @@
     <parent>
         <groupId>net.jonathangiles.tools</groupId>
         <artifactId>dependencyChecker-parent</artifactId>
-        <version>1.0.0</version>
+        <version>1.0.3</version>
     </parent>
 
     <name>Dependency Checker - Maven Plugin</name>
@@ -16,7 +16,7 @@
 
     <groupId>net.jonathangiles.tools</groupId>
     <artifactId>dependencyChecker-maven-plugin</artifactId>
-    <version>1.0.0</version>
+    <version>1.0.3</version>
     <packaging>maven-plugin</packaging>
 
     <distributionManagement>
@@ -24,6 +24,10 @@
             <id>ossrh</id>
             <url>https://oss.sonatype.org/content/repositories/snapshots</url>
         </snapshotRepository>
+        <repository>
+            <id>ossrh</id>
+            <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
+        </repository>
     </distributionManagement>
 
     <scm>
@@ -63,14 +67,14 @@
         <dependency>
             <groupId>net.jonathangiles.tools</groupId>
             <artifactId>dependencyChecker-core</artifactId>
-            <version>1.0.0</version>
+            <version>1.0.3</version>
         </dependency>
 
         <!-- Support for running as a Maven plugin -->
         <dependency>
             <groupId>org.apache.maven</groupId>
             <artifactId>maven-plugin-api</artifactId>
-            <version>3.6.3</version>
+            <version>3.6.0</version>
         </dependency>
         <dependency>
             <groupId>org.apache.maven.plugin-tools</groupId>
