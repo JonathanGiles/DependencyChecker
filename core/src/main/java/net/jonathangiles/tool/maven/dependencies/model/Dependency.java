@@ -70,6 +70,8 @@ public class Dependency {
 
     /**
      * Returns true when there is more than one version being depended on.
+     *
+     * @return True if this dependency has versioning issues.
      */
     public boolean isProblemDependency() {
         return dependenciesOnVersion.size() > 1;

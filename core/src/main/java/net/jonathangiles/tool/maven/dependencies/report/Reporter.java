@@ -12,6 +12,8 @@ public interface Reporter {
 
     /**
      * The name of the reporter, for use by the user of the app to request that this reporter be run.
+     *
+     * @return The name of the reporter.
      */
     String getName();
 
