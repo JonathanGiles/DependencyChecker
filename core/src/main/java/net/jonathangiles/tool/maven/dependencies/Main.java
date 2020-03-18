@@ -5,6 +5,7 @@ import com.google.gson.reflect.TypeToken;
 import net.jonathangiles.tool.maven.dependencies.gson.DeserializerForProject;
 import net.jonathangiles.tool.maven.dependencies.misc.Result;
 import net.jonathangiles.tool.maven.dependencies.model.Dependency;
+import net.jonathangiles.tool.maven.dependencies.model.DependencyKey;
 import net.jonathangiles.tool.maven.dependencies.model.DependencyManagement;
 import net.jonathangiles.tool.maven.dependencies.model.Version;
 import net.jonathangiles.tool.maven.dependencies.project.MavenReleasedProject;
@@ -42,10 +43,10 @@ public class Main {
     private static final String COMMAND_REPORTERS = "reporters";
 
     // maps from a Maven GA to a Dependency instance, containing all dependencies on this GA
-    private Map<String, Dependency> dependencies;
+    private Map<DependencyKey, Dependency> dependencies;
 
     // maps from a Maven GA to a Maven Coordinate
-    private Map<String, DependencyManagement> dependencyManagementMap;
+    private Map<DependencyKey, DependencyManagement> dependencyManagementMap;
 
     private final File outputDir;
 
@@ -186,12 +187,12 @@ public class Main {
                 .reduce(Result::compare);
     }
 
-    private void updateManagementState(String ga, DependencyManagement managedDep) {
+    private void updateManagementState(DependencyKey dependencyKey, DependencyManagement managedDep) {
         if (managedDep.getState() != DependencyManagement.State.UNKNOWN) {
             return;
         }
 
-        Dependency dep = dependencies.get(ga);
+        Dependency dep = dependencies.get(dependencyKey);
         if (dep == null) {
             managedDep.setState(DependencyManagement.State.UNUSED);
             return;
@@ -234,7 +235,6 @@ public class Main {
         // collect all dependencies for this project
         try {
             MavenResolvedArtifact[] result = getMavenResolver().loadPomFromFile(pomFile)
-//                    .importDependencies(ScopeType.RUNTIME)
                     .importDependencies(ScopeType.values())
                     .resolve()
                     .withTransitivity()
@@ -261,12 +261,13 @@ public class Main {
     }
 
     private void processArtifact(Project p, MavenArtifactInfo a, List<MavenArtifactInfo> depChain) {
+        System.out.println("Scope is '" + a.getScope() + "'");
         // add in artifact
         String groupId = a.getCoordinate().getGroupId();
         String artifactId = a.getCoordinate().getArtifactId();
         String ga = groupId + ":" + artifactId;
 
-        dependencies.computeIfAbsent(ga, s -> new Dependency(a)).addArtifact(p, a, depChain);
+        dependencies.computeIfAbsent(new DependencyKey(ga, a.getScope()), s -> new Dependency(a)).addArtifact(p, a, depChain);
 
         System.out.println("   Processing artifact " + ga + " (gav: " + a.getCoordinate() + ")");
 
@@ -341,7 +342,7 @@ public class Main {
 
             if (dependencyManagement) {
                 DependencyManagement dep = DependencyManagement.fromMaven(mavenDep);
-                dependencyManagementMap.putIfAbsent(ga, dep);
+                dependencyManagementMap.putIfAbsent(new DependencyKey(ga, mavenDep.getScope()), dep);
             }
 
             if (analyseBom) {
@@ -357,7 +358,7 @@ public class Main {
         }
 
         if (dependencyManagement) {
-            for (Map.Entry<String, Dependency> entry : dependencies.entrySet()) {
+            for (Map.Entry<DependencyKey, Dependency> entry : dependencies.entrySet()) {
                 // Record all dependencies that were discovered in projects that aren't in DependencyManagement
                 dependencyManagementMap.putIfAbsent(entry.getKey(), DependencyManagement.fromUnmanagedDependency(entry.getValue()));
             }
