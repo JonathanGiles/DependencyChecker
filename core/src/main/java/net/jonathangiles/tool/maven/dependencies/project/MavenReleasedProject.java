@@ -2,7 +2,6 @@ package net.jonathangiles.tool.maven.dependencies.project;
 
 import net.jonathangiles.tool.maven.dependencies.misc.Util;
 import net.jonathangiles.tool.maven.dependencies.model.Version;
-import org.jboss.shrinkwrap.resolver.api.maven.Maven;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -49,7 +48,7 @@ public class MavenReleasedProject implements Project {
         if (getVersion().isSnapshot()) {
             url = "https://oss.sonatype.org/content/repositories/snapshots/";
         } else {
-            url = "http://central.maven.org/maven2/";
+            url = "https://repo.maven.apache.org/maven2/";
         }
 
         url += groupId.replace(".", "/")
