@@ -7,7 +7,7 @@
     <parent>
         <groupId>net.jonathangiles.tools</groupId>
         <artifactId>dependencyChecker-parent</artifactId>
-        <version>1.0.4</version>
+        <version>1.0.5</version>
     </parent>
 
     <name>Dependency Checker - Maven Plugin</name>
@@ -16,7 +16,7 @@
 
     <groupId>net.jonathangiles.tools</groupId>
     <artifactId>dependencyChecker-maven-plugin</artifactId>
-    <version>1.0.4</version>
+    <version>1.0.5</version>
     <packaging>maven-plugin</packaging>
 
     <distributionManagement>

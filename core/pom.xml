@@ -7,12 +7,12 @@
     <parent>
         <groupId>net.jonathangiles.tools</groupId>
         <artifactId>dependencyChecker-parent</artifactId>
-        <version>1.0.4</version>
+        <version>1.0.5</version>
     </parent>
 
     <groupId>net.jonathangiles.tools</groupId>
     <artifactId>dependencyChecker-core</artifactId>
-    <version>1.0.4</version>
+    <version>1.0.5</version>
 
     <name>Dependency Checker - Core</name>
     <description>A Maven dependency checker and report tool for identifying dependency convergence issues.</description>
