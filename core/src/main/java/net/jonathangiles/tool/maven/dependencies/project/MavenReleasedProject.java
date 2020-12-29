@@ -2,7 +2,6 @@ package net.jonathangiles.tool.maven.dependencies.project;
 
 import net.jonathangiles.tool.maven.dependencies.misc.Util;
 import net.jonathangiles.tool.maven.dependencies.model.Version;
-import org.jboss.shrinkwrap.resolver.api.maven.Maven;
 
 import java.util.ArrayList;
 import java.util.List;
