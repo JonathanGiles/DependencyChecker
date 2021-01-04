@@ -139,7 +139,7 @@ public class Main {
     protected List<Project> loadProjects(File inputFile) {
         if (inputFile.getName().endsWith(".xml")) {
             // we are being given a pom file directly
-            final Project project = new WebProject(inputFile.getName(), analyseBom);
+            final Project project = new WebProject(getFileNameWithoutExtension(inputFile.getName()), analyseBom);
             project.getPomUrls().add(inputFile.getAbsolutePath());
             return Collections.singletonList(project);
         } else {
@@ -155,6 +155,14 @@ public class Main {
                 return Collections.emptyList();
             }
         }
+    }
+
+    private String getFileNameWithoutExtension(String filename) {
+        int index = filename.lastIndexOf('.');
+        if (index == -1) {
+            return filename;
+        }
+        return filename.substring(0, index);
     }
 
     private Optional<Result> runScan(File inputFile) {
@@ -286,6 +294,7 @@ public class Main {
     }
 
     private Optional<File> downloadPom(Project project, String pomPath) {
+        System.out.println("The project name is " + project.getFullProjectName());
         final String f = ("temp/" + project.getFullProjectName() + "/pom.xml").replace(":", "-");
         final File outputFile = new File(f);
         outputFile.getParentFile().mkdirs();
