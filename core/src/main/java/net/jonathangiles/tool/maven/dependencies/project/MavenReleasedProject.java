@@ -48,7 +48,7 @@ public class MavenReleasedProject implements Project {
         if (getVersion().isSnapshot()) {
             url = "https://oss.sonatype.org/content/repositories/snapshots/";
         } else {
-            url = "http://central.maven.org/maven2/";
+            url = "https://repo.maven.apache.org/maven2/";
         }
 
         url += groupId.replace(".", "/")
