@@ -4,7 +4,13 @@ import net.jonathangiles.tool.maven.dependencies.project.Project;
 import org.jboss.shrinkwrap.resolver.api.maven.MavenArtifactInfo;
 import org.jboss.shrinkwrap.resolver.api.maven.ScopeType;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
 import java.util.stream.Collectors;
 
 import static net.jonathangiles.tool.maven.dependencies.misc.Util.getLatestVersionInMavenCentral;

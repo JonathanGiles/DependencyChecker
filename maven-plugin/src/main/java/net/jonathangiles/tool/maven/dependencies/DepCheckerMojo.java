@@ -1,8 +1,6 @@
 package net.jonathangiles.tool.maven.dependencies;
 
 import net.jonathangiles.tool.maven.dependencies.misc.Result;
-import net.jonathangiles.tool.maven.dependencies.project.Project;
-import net.jonathangiles.tool.maven.dependencies.project.WebProject;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
@@ -11,12 +9,11 @@ import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.MavenProject;
 
 import java.io.File;
-import java.util.List;
 import java.util.Optional;
 
 @Mojo(name = "check")
 public class DepCheckerMojo extends AbstractMojo {
-    @Parameter(defaultValue="${project}", readonly=true, required=true)
+    @Parameter(defaultValue = "${project}", readonly = true, required = true)
     private MavenProject project;
 
     @Parameter(property = "check.reporters", defaultValue = "")
@@ -34,27 +31,34 @@ public class DepCheckerMojo extends AbstractMojo {
     @Parameter
     private boolean failOnDependencyConflict;
 
+    @Parameter(property = "check.reportName", defaultValue = "${project.artifactId}-dependency-report")
+    private String reportName;
+
+    @Parameter(property = "check.outputDirectory", defaultValue = "${project.build.directory}/dependency-checker")
+    private String outputDirectory;
+
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
-        Main main = new Main() {
+        MavenLogger logger = new MavenLogger(DepCheckerMojo.class.getName(), getLog());
+
+        Main main = new Main(logger) {
             @Override
             protected File[] loadInputs() {
-                return new File[] { project.getFile() };
+                return new File[]{project.getFile()};
             }
         };
+
         main.setReporters(reporters);
         main.setShowAll(showAll);
         main.setAnalyseBom(analyseBom);
         main.setDependencyManagement(dependencyManagement);
+        main.setReportName(reportName);
+        main.setOutputDirectory(outputDirectory);
 
-        getLog().info("Hello: " + project.getFile());
-        getLog().info("Running with configuration: [ " +
-                              "reporters='" + reporters + '\'' +
-                              ", analyseBom=" + analyseBom +
-                              ", dependencyManagement=" + dependencyManagement +
-                              ", showAll=" + showAll +
-                              ", failOnDependencyConflict=" + failOnDependencyConflict +
-                              " ]");
+        logger.info("Hello: {}", project.getFile());
+        logger.info("Running with configuration: [reporters='{}', analyseBom={}, dependencyManagement={}, showAll={}, "
+            + "failOnDependencyConflict={}, reportName='{}', outputDirectory='{}']", reporters, analyseBom,
+            dependencyManagement, showAll, failOnDependencyConflict, reportName, outputDirectory);
 
         Optional<Result> resultOptional = main.run();
 

@@ -1,6 +1,9 @@
 package net.jonathangiles.tool.maven.dependencies.report;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.ServiceLoader;
 import java.util.stream.Stream;
 
 public final class Reporters {
@@ -22,9 +25,9 @@ public final class Reporters {
             return reporters.values().stream();
         }
         return Stream.of(names)
-                .map(String::trim)
-                .filter(reporters::containsKey)
-                .map(reporters::get);
+            .map(String::trim)
+            .filter(reporters::containsKey)
+            .map(reporters::get);
     }
 
     public static Stream<String> getReporterNames() {

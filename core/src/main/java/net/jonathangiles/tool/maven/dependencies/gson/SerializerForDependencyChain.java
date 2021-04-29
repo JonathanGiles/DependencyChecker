@@ -1,6 +1,10 @@
 package net.jonathangiles.tool.maven.dependencies.gson;
 
-import com.google.gson.*;
+import com.google.gson.Gson;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonSerializationContext;
+import com.google.gson.JsonSerializer;
 import net.jonathangiles.tool.maven.dependencies.model.DependencyChain;
 
 import java.lang.reflect.Type;

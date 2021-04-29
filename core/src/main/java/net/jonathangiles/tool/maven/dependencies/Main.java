@@ -11,11 +11,21 @@ import net.jonathangiles.tool.maven.dependencies.model.Version;
 import net.jonathangiles.tool.maven.dependencies.project.MavenReleasedProject;
 import net.jonathangiles.tool.maven.dependencies.project.Project;
 import net.jonathangiles.tool.maven.dependencies.project.WebProject;
-import net.jonathangiles.tool.maven.dependencies.report.*;
-import org.apache.commons.cli.*;
-import org.jboss.shrinkwrap.resolver.api.maven.*;
+import net.jonathangiles.tool.maven.dependencies.report.Reporters;
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.CommandLineParser;
+import org.apache.commons.cli.DefaultParser;
+import org.apache.commons.cli.Options;
+import org.apache.commons.cli.ParseException;
+import org.jboss.shrinkwrap.resolver.api.maven.MavenArtifactInfo;
+import org.jboss.shrinkwrap.resolver.api.maven.MavenResolveStageBase;
+import org.jboss.shrinkwrap.resolver.api.maven.MavenResolvedArtifact;
+import org.jboss.shrinkwrap.resolver.api.maven.MavenWorkingSession;
+import org.jboss.shrinkwrap.resolver.api.maven.ScopeType;
 import org.jboss.shrinkwrap.resolver.api.maven.coordinate.MavenDependency;
 import org.jboss.shrinkwrap.resolver.impl.maven.MavenWorkingSessionContainer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.w3c.dom.Document;
 import org.w3c.dom.NodeList;
 
@@ -24,16 +34,27 @@ import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.xpath.XPath;
 import javax.xml.xpath.XPathConstants;
 import javax.xml.xpath.XPathFactory;
-import java.io.*;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.FileReader;
 import java.net.URL;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static net.jonathangiles.tool.maven.dependencies.misc.Util.*;
+import static net.jonathangiles.tool.maven.dependencies.misc.Util.getMavenResolver;
 
 public class Main {
 
@@ -41,6 +62,10 @@ public class Main {
     private static final String COMMAND_DEPENDENCY_MANAGEMENT = "dependencymanagement";
     private static final String COMMAND_ANALYSE_BOM = "analysebom";
     private static final String COMMAND_REPORTERS = "reporters";
+    private static final String COMMAND_REPORT_NAME = "reportName";
+    private static final String COMMAND_OUTPUT_DIRECTORY = "outputDirectory";
+
+    private final Logger logger;
 
     // maps from a Maven GA to a Dependency instance, containing all dependencies on this GA
     private Map<DependencyKey, Dependency> dependencies;
@@ -48,13 +73,13 @@ public class Main {
     // maps from a Maven GA to a Maven Coordinate
     private Map<DependencyKey, DependencyManagement> dependencyManagementMap;
 
-    private final File outputDir;
-
     // configuration properties
     private String[] reporters;
     private boolean showAll;
     private boolean dependencyManagement;
     private boolean analyseBom;
+    private String reportName;
+    private String outputDirectory;
 
     public static void main(String[] args) {
         Main main = new Main();
@@ -76,7 +101,13 @@ public class Main {
             options.addOption(COMMAND_ANALYSE_BOM, false, "If specified, the dependencies listed in the dependencyManagement section are analysed transitively.");
 
             // A string, e.g. '-reporters html,json,plain-text'
-            options.addOption(COMMAND_REPORTERS, "A comma-separated string of the reporters to use to generate reports");
+            options.addOption(COMMAND_REPORTERS, "A comma-separated string of the reporters to use to generate reports.");
+
+            // A string, e.g. '-reportName myReportName'
+            options.addOption(COMMAND_REPORT_NAME, "A string used as the name of the report(s).");
+
+            // A string, e.g. '-outputDirectory C:/target/'
+            options.addOption(COMMAND_OUTPUT_DIRECTORY, "A string used as the file path to where the report(s) will be written.");
 
             CommandLineParser parser = new DefaultParser();
             CommandLine commands = parser.parse(options, args);
@@ -85,14 +116,20 @@ public class Main {
             main.setShowAll(commands.hasOption(COMMAND_SHOW_ALL));
             main.setDependencyManagement(commands.hasOption(COMMAND_DEPENDENCY_MANAGEMENT));
             main.setAnalyseBom(commands.hasOption(COMMAND_ANALYSE_BOM));
+            main.setReportName(commands.getOptionValue(COMMAND_REPORT_NAME));
+            main.setOutputDirectory(commands.getOptionValue(COMMAND_OUTPUT_DIRECTORY));
         } catch (ParseException e) {
             e.printStackTrace();
         }
     }
 
     public Main() {
+        this(LoggerFactory.getLogger(Main.class));
+    }
+
+    public Main(Logger logger) {
+        this.logger = logger;
         System.setProperty("os.detected.classifier", "linux-x86_64");
-        outputDir = new File("output");
     }
 
     public void setReporters(final String reporters) {
@@ -111,29 +148,45 @@ public class Main {
         this.analyseBom = analyseBom;
     }
 
+    public void setReportName(final String reportName) {
+        this.reportName = reportName;
+    }
+
+    public void setOutputDirectory(final String outputDirectory) {
+        this.outputDirectory = outputDirectory;
+    }
+
     public Optional<Result> run() {
+        final File outputDir = (outputDirectory == null || outputDirectory.isEmpty())
+            ? Paths.get("/target/dependency-checker").toFile()
+            : Paths.get(outputDirectory).toFile();
+
         if (outputDir.exists()) {
-            Arrays.stream(outputDir.listFiles()).forEach(File::delete);
+            if (!outputDir.delete()) {
+                logger.debug("Failed to delete contents of the output directory: {}", outputDir);
+            }
         } else {
-            outputDir.mkdirs();
+            if (!outputDir.mkdirs()) {
+                throw new IllegalStateException("Failed to create output directory.");
+            }
         }
 
-        System.out.println("Found the following reporters available for use:");
-        Reporters.getReporterNames().forEach(r -> System.out.println("  - " + r));
+        logger.debug("Found the following reporters available for use:");
+        Reporters.getReporterNames().forEach(r -> logger.debug("  - {}", r));
 
-        System.out.println("Will output the following report types:");
-        Reporters.getReporters(reporters).forEach(r -> System.out.println("  - " + r.getName()));
+        logger.debug("Will output the following report types:");
+        Reporters.getReporters(reporters).forEach(r -> logger.debug("  - {}", r.getName()));
 
         // we run zero or more iterations, once for each input in the input directory
         return Arrays.stream(loadInputs())
-                       .map(this::runScan)
-                       .filter(Optional::isPresent)
-                       .map(Optional::get)
-                       .reduce(Result::compare);
+            .map(inputFile -> runScan(inputFile, outputDir))
+            .filter(Optional::isPresent)
+            .map(Optional::get)
+            .reduce(Result::compare);
     }
 
     protected File[] loadInputs() {
-        return new File("input").listFiles(((dir, name) -> name.endsWith("json")));
+        return new File("input").listFiles((dir, name) -> name.endsWith("json"));
     }
 
     protected List<Project> loadProjects(File inputFile) {
@@ -146,10 +199,10 @@ public class Main {
             // we will assume we have a json config file
             try {
                 return new GsonBuilder()
-                               .registerTypeAdapter(Project.class, new DeserializerForProject())
-                               .create()
-                               .fromJson(new FileReader(inputFile), new TypeToken<ArrayList<Project>>() {
-                               }.getType());
+                    .registerTypeAdapter(Project.class, new DeserializerForProject())
+                    .create()
+                    .fromJson(new FileReader(inputFile), new TypeToken<ArrayList<Project>>() {
+                    }.getType());
             } catch (FileNotFoundException e) {
                 e.printStackTrace();
                 return Collections.emptyList();
@@ -165,34 +218,36 @@ public class Main {
         return filename.substring(0, index);
     }
 
-    private Optional<Result> runScan(File inputFile) {
+    private Optional<Result> runScan(File inputFile, File outputDir) {
         dependencies = new HashMap<>();
         dependencyManagementMap = new HashMap<>();
 
         // load all projects from the json file and start processing the poms, and any sub-module poms (recursively)
         List<Project> projects = loadProjects(inputFile);
         projects.stream()
-                .peek(project -> System.out.println("Processing project " + project.getProjectName()))
-                .forEach(project -> project.getPomUrls().forEach(pom -> processProjectPom(project, pom)));
+            .peek(project -> logger.info("Processing project {}", project.getProjectName()))
+            .forEach(project -> project.getPomUrls().forEach(pom -> processProjectPom(project, pom)));
 
         // analyse results
         final List<Dependency> problems = dependencies.values().stream()
-                .filter(dependency -> showAll || dependency.isProblemDependency())
-                .collect(Collectors.toList());
+            .filter(dependency -> showAll || dependency.isProblemDependency())
+            .collect(Collectors.toList());
 
         dependencyManagementMap.forEach(this::updateManagementState);
 
         // output reports
         // strip .json file extension from input file name
-        String outputFileName = inputFile.getName().substring(0, inputFile.getName().lastIndexOf("."));
+        String outputFileName = (reportName == null || reportName.isEmpty())
+            ? inputFile.getName().substring(0, inputFile.getName().lastIndexOf("."))
+            : reportName;
 
-        Reporters.getReporters(reporters)
-                .forEach(reporter -> reporter.report(projects, problems, dependencyManagementMap.values(), outputDir, outputFileName));
+        Reporters.getReporters(reporters).forEach(reporter ->
+            reporter.report(projects, problems, dependencyManagementMap.values(), outputDir, outputFileName));
 
         // look at the results, and determine what the result type is for this scan
         return dependencies.values().stream()
-                .map(dep -> dep.isProblemDependency() ? Result.DEPENDENCY_VERSION_CONFLICTS : Result.CLEAN)
-                .reduce(Result::compare);
+            .map(dep -> dep.isProblemDependency() ? Result.DEPENDENCY_VERSION_CONFLICTS : Result.CLEAN)
+            .reduce(Result::compare);
     }
 
     private void updateManagementState(DependencyKey dependencyKey, DependencyManagement managedDep) {
@@ -220,7 +275,7 @@ public class Main {
     }
 
     private void processProjectPom(Project p, String pomUrl) {
-        System.out.println(" - Processing project pom " + pomUrl);
+        logger.info(" - Processing project pom {}", pomUrl);
         downloadPom(p, pomUrl).ifPresent(pomFile -> {
             scanManagedDependencies(pomFile);
             processPom(p, pomUrl, pomFile);
@@ -228,12 +283,12 @@ public class Main {
     }
 
     private void processModulePom(Project p, String pomUrl) {
-        System.out.println(" - Processing module pom " + pomUrl);
+        logger.info(" - Processing module pom {}", pomUrl);
         downloadPom(p, pomUrl).ifPresent(pomFile -> processPom(p, pomUrl, pomFile));
     }
 
     private void processPom(Project p, String pomUrl, File pomFile) {
-        System.out.println("   Processing...");
+        logger.debug("   Processing...");
 
         // we need to analyse the pom file to see if it has any modules, and if so, we download the pom files for
         // these modules and also process them
@@ -243,22 +298,21 @@ public class Main {
         // collect all dependencies for this project
         try {
             MavenResolvedArtifact[] result = getMavenResolver().loadPomFromFile(pomFile)
-                    .importDependencies(ScopeType.values())
-                    .resolve()
-                    .withTransitivity()
-                    .asResolvedArtifact();
+                .importDependencies(ScopeType.values())
+                .resolve()
+                .withTransitivity()
+                .asResolvedArtifact();
 
             if (result.length == 0) {
-                System.err.println("Failed to find any dependencies for " + p.getFullProjectName() + " - exiting");
+                logger.error("Failed to find any dependencies for {} - exiting", p.getFullProjectName());
                 System.exit(-1);
             }
 
-            Arrays.stream(result)
-                    .forEach(artifact -> processArtifact(p, artifact, new ArrayList<>()));
+            Arrays.stream(result).forEach(artifact -> processArtifact(p, artifact, new ArrayList<>()));
         } catch (IllegalArgumentException e) {
             // we get an IAE if there are no dependencies specified in the resolution. This is fine - we just carry on
         } catch (Exception e) {
-            System.err.println("Skipped printing exception");
+            logger.warn(e.getMessage());
         }
 
         // now process all modules that we found
@@ -269,7 +323,7 @@ public class Main {
     }
 
     private void processArtifact(Project p, MavenArtifactInfo a, List<MavenArtifactInfo> depChain) {
-        System.out.println("Scope is '" + a.getScope() + "'");
+        logger.debug("Scope is '{}'", a.getScope());
         // add in artifact
         String groupId = a.getCoordinate().getGroupId();
         String artifactId = a.getCoordinate().getArtifactId();
@@ -277,14 +331,14 @@ public class Main {
 
         dependencies.computeIfAbsent(new DependencyKey(ga, a.getScope()), s -> new Dependency(a)).addArtifact(p, a, depChain);
 
-        System.out.println("   Processing artifact " + ga + " (gav: " + a.getCoordinate() + ")");
+        logger.debug("   Processing artifact {} (gav: {})", ga, a.getCoordinate());
 
         final List<MavenArtifactInfo> updatedDepChain = updateDependencyChain(depChain, a);
 
         // and then add in all dependencies required by the artifact
         Arrays.stream(a.getDependencies())
 //              .filter(artifact -> !artifact.getScope().equals(ScopeType.TEST))
-              .forEach(dependency -> processArtifact(p, dependency, updatedDepChain));
+            .forEach(dependency -> processArtifact(p, dependency, updatedDepChain));
     }
 
     private List<MavenArtifactInfo> updateDependencyChain(List<MavenArtifactInfo> chain, MavenArtifactInfo child) {
@@ -294,8 +348,8 @@ public class Main {
     }
 
     private Optional<File> downloadPom(Project project, String pomPath) {
-        System.out.println("The project name is " + project.getFullProjectName());
-        final String f = ("temp/" + project.getFullProjectName() + "/pom.xml").replace(":", "-");
+        logger.debug("The project name is {}", project.getFullProjectName());
+        final String f = outputDirectory + ("/temp/" + project.getFullProjectName() + "/pom.xml").replace(":", "-");
         final File outputFile = new File(f);
         outputFile.getParentFile().mkdirs();
 
@@ -305,17 +359,17 @@ public class Main {
             if (file.exists()) {
                 Files.copy(file.toPath(), outputFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
             } else {
-                System.out.print("   Downloading...");
+                logger.debug("   Downloading...");
 
                 URL url = new URL(pomPath);
                 ReadableByteChannel rbc = Channels.newChannel(url.openStream());
                 FileOutputStream fos = new FileOutputStream(outputFile);
                 fos.getChannel().transferFrom(rbc, 0, Long.MAX_VALUE);
-                System.out.println("Success");
+                logger.debug("Success");
             }
             return Optional.of(outputFile);
         } catch (Exception e) {
-            System.err.println("Failed to download pom file " + pomPath);
+            logger.warn("Failed to download pom file {}", pomPath);
             e.printStackTrace();
             return Optional.empty();
         }
@@ -333,7 +387,7 @@ public class Main {
             for (int i = 0; i < nodeList.getLength(); i++) {
                 String name = nodeList.item(i).getTextContent();
 
-                System.out.println("Found module: " + name);
+                logger.debug("Found module: {}", name);
                 project.getModules().add(new WebProject(name, project));
             }
         } catch (Exception e) {
@@ -357,12 +411,12 @@ public class Main {
             if (analyseBom) {
                 MavenResolvedArtifact[] result = getMavenResolver().addDependency(mavenDep).resolve().withTransitivity().asResolvedArtifact();
                 Arrays.stream(result)
-                        .forEach(artifact -> processArtifact(new MavenReleasedProject(groupId, artifactId, mavenDep.getVersion()) {
-                            @Override
-                            public boolean isBom() {
-                                return true;
-                            }
-                        }, artifact, new ArrayList<>()));
+                    .forEach(artifact -> processArtifact(new MavenReleasedProject(groupId, artifactId, mavenDep.getVersion()) {
+                        @Override
+                        public boolean isBom() {
+                            return true;
+                        }
+                    }, artifact, new ArrayList<>()));
             }
         }
 
