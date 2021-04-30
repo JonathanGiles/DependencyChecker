@@ -1,7 +1,13 @@
 package net.jonathangiles.tool.maven.dependencies.misc;
 
 import net.jonathangiles.tool.maven.dependencies.model.Version;
-import org.jboss.shrinkwrap.resolver.api.maven.*;
+import org.jboss.shrinkwrap.resolver.api.maven.Maven;
+import org.jboss.shrinkwrap.resolver.api.maven.MavenFormatStage;
+import org.jboss.shrinkwrap.resolver.api.maven.MavenResolverSystemBase;
+import org.jboss.shrinkwrap.resolver.api.maven.MavenStrategyStage;
+import org.jboss.shrinkwrap.resolver.api.maven.MavenVersionRangeResult;
+import org.jboss.shrinkwrap.resolver.api.maven.PomEquippedResolveStage;
+import org.jboss.shrinkwrap.resolver.api.maven.PomlessResolveStage;
 import org.jboss.shrinkwrap.resolver.api.maven.coordinate.MavenCoordinate;
 
 import java.util.HashMap;

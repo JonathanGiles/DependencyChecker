@@ -1,11 +1,14 @@
 package net.jonathangiles.tool.maven.dependencies.gson;
 
-import com.google.gson.*;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonDeserializationContext;
+import com.google.gson.JsonDeserializer;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParseException;
 import net.jonathangiles.tool.maven.dependencies.project.MavenReleasedProject;
 import net.jonathangiles.tool.maven.dependencies.project.Project;
 import net.jonathangiles.tool.maven.dependencies.project.WebProject;
-import org.jboss.shrinkwrap.resolver.api.maven.Maven;
-import org.jboss.shrinkwrap.resolver.api.maven.MavenArtifactInfo;
 
 import java.lang.reflect.Type;
 
@@ -44,8 +47,8 @@ public class DeserializerForProject implements JsonDeserializer<Project> {
         } else if (jsonElement.isJsonPrimitive()) {
             String[] str = jsonElement.getAsJsonPrimitive().getAsString().split(":");
             return str.length == 3 ?
-                    new MavenReleasedProject(str[0], str[1], str[2]) :
-                    new MavenReleasedProject(str[0], str[1], null);
+                new MavenReleasedProject(str[0], str[1], str[2]) :
+                new MavenReleasedProject(str[0], str[1], null);
         }
 
         System.out.println("Can't parse JSON element: " + jsonElement);
